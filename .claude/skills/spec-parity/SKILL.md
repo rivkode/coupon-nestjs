@@ -18,10 +18,14 @@ description: Java 원본(promotion-event)과 동일해야 하는 계약 — 공�
 
 | # | 메서드 · 경로 | 서버 | 인증 | 성공 |
 |---|---|---|---|---|
-| 1 | `POST /api/v1/coupons/issue-request` | a :8080 | `X-User-Id` 필수 | 200 |
-| 2 | `POST /api/v1/coupons/{code}/redeem` | c :8082 | `X-User-Id` 필수 | 200 |
+| 1 | `POST /api/v1/coupons/issue-request` | a :8080 | `X-User-Id` 필수 | **200** |
+| 2 | `POST /api/v1/coupons/{code}/redeem` | c :8082 | `X-User-Id` 필수 | **200** |
 | 3 | `GET  /api/v1/users/me/coupons` | c :8082 | `X-User-Id` 필수 | 200 (배열, `issued_at DESC`, 페이지네이션 없음) |
 | 4 | `GET  /api/v1/events/{eventId}` | c :8082 | **없음** | 200 |
+
+⚠️ **POST 의 성공 코드는 201 이 아니라 200 이다.** Nest 의 `@Post()` 는 기본이 201 이므로
+`@HttpCode(HttpStatus.OK)` 를 반드시 붙인다. 원본은 셋 다 `ResponseEntity.status(HttpStatus.OK)` 다.
+(#5 의 raw 응답도 200)
 
 ## 2. 내부 API (2)
 
@@ -166,12 +170,19 @@ ZSet member: `"{userId}:{couponTypeId}"`, score: `lastPublishedAt` (최초엔 `c
 | 토픽 | 방향 | key | payload 필드 (순서 그대로) |
 |---|---|---|---|
 | `coupon-issue-request` | b → c | `userId` | `requestId`, `userId`, `eventId`, `couponTypeId`, `requestedAt` |
-| `coupon-issue-result` | c → b | `userId` | `requestId`, `userId`, `eventId`, `couponTypeId`, `status`, **`couponCode`**, `processedAt` |
+| `coupon-issue-result` | c → b | **`requestId`** | `requestId`, `userId`, `eventId`, `couponTypeId`, `status`, **`couponCode`**, `processedAt` |
 
 - result 의 코드 필드는 **`couponCode`** 다. `code` 가 아니다 (Redis hash 필드명이 `code` 라서 혼동하기 쉽다).
 - `couponCode` 는 `status === 'SUCCESS'` 일 때만 non-null.
-- key 를 `userId` 로 두는 이유: 같은 user 의 이벤트에 partition 순서를 보장하기 위함.
-- 시각 필드(`requestedAt`, `processedAt`)는 Java `Instant` → **ISO-8601 문자열**로 직렬화된다.
+- ⚠️ **두 토픽의 key 가 다르다.**
+  - request: `IssueRequestPublisher` 가 `Long.toString(payload.userId())` 를 key 로 쓴다
+    → 같은 user 의 신청에 partition 순서 보장.
+  - result: `OutboxPoller` 가 `outbox_event.aggregate_id` 를 key 로 넘기고,
+    `CouponIssueProcessor#saveOutbox` 가 거기에 **`requestId`** 를 넣는다.
+  - `CouponIssueResultPayload` 의 javadoc 은 "key = userId" 라고 적혀 있지만 **코드와 다르다**.
+    `erd.md` 의 `aggregate_id` 설명("user_coupon_id 등")도 실제와 다르다. 코드가 권위다.
+- 시각 필드(`requestedAt`, `processedAt`)는 Java **`Instant`** → `2026-05-10T14:20:00Z` 형태
+  (UTC, `Z` 접미사 있음). `LocalDateTime` 필드와 형식이 다르니 §11 과 혼동하지 말 것.
 
 ### 쿠폰 코드 생성 규칙 (`CouponCode`)
 - 길이 **12**, 알파벳 `ABCDEFGHJKMNPQRSTVWXYZ0123456789` (32자, I/L/O/U 제외)
@@ -203,3 +214,28 @@ ZSet member: `"{userId}:{couponTypeId}"`, score: `lastPublishedAt` (최초엔 `c
 - [ ] **원본에 없는 것을 추가하지 않았는가**
 
 하나라도 "원본을 개선했다" 면 → 되돌리고 사용자에게 보고한다.
+
+## 11. 시각 직렬화 — `Instant` 와 `LocalDateTime` 은 형식이 다르다
+
+원본은 두 가지 시각 타입을 쓰고 Jackson 이 **서로 다른 문자열**로 직렬화한다. 섞으면 계약이 깨진다.
+
+| 타입 | 쓰이는 곳 | 형식 | 예 |
+|---|---|---|---|
+| `Instant` | Kafka payload (`requestedAt`, `processedAt`), server-a `issue_request.created_at` | ISO-8601 **UTC, `Z` 포함** | `2026-05-10T14:20:00Z` |
+| `LocalDateTime` | server-c 의 모든 API 응답 (`issuedAt`, `usedAt`, `startedAt`, `endedAt`) | **`ISO_LOCAL_DATE_TIME` — 타임존 없음** | `2026-05-10T14:20:30.123` |
+
+⚠️ **`ISO_LOCAL_DATE_TIME` 은 뒷자리를 생략한다.** JS `Date.toISOString()` 과 다르다:
+
+| 값 | Java 출력 | `toISOString()` (틀림) |
+|---|---|---|
+| 14:20:00.000 | `2026-05-10T14:20` | `2026-05-10T14:20:00.000Z` |
+| 14:20:30.000 | `2026-05-10T14:20:30` | `2026-05-10T14:20:30.000Z` |
+| 14:20:30.123 | `2026-05-10T14:20:30.123` | `2026-05-10T14:20:30.123Z` |
+
+규칙: `HH:mm` 을 쓰고, 초가 0 이 아니거나 밀리초가 0 이 아니면 `:ss` 를 붙이고,
+밀리초가 0 이 아니면 `.SSS` 를 붙인다. `Z` 는 **절대 붙이지 않는다**.
+
+`api-spec.md` 의 예시(`"2026-05-10T14:20:00.000"`)는 손으로 쓴 것이라 이 규칙과 어긋난다 — 코드가 권위다.
+
+DB 는 `jdbc.time_zone: UTC` 로 저장하므로 JS 에서는 Date 의 **UTC 성분**으로 포맷해야
+저장값이 그대로 나온다 (`libs/common` 의 `toLocalDateTimeString`).
