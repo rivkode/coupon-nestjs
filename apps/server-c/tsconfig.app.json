@@ -1,0 +1,9 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "declaration": false,
+    "outDir": "../../dist"
+  },
+  "include": ["src/**/*", "../../libs/**/*", "../../migrations/server-c/**/*"],
+  "exclude": ["node_modules", "dist", "**/*.spec.ts"]
+}

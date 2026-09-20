@@ -1,0 +1,116 @@
+# 이 리포 전용 인프라 스택 (MySQL ×2 · Redis · Kafka).
+#
+# 원본(promotion-event)의 docker-compose.yml 과 **같은 이미지·같은 설정**을 쓰되,
+# 호스트에서 이미 돌고 있는 다른 프로젝트(jamo 등)와 충돌하지 않도록 포트만 옮겼다.
+# 컨테이너 내부 포트와 스키마 이름은 원본 그대로여서 애플리케이션 설정은 동일하다.
+#
+#   docker compose up -d
+#   docker compose down          # 컨테이너만 제거 (데이터 유지)
+#   docker compose down -v       # 데이터까지 삭제
+#
+# ⚠️ 원본 리포의 compose 와 **동시에 띄우지 말 것** — 앱 포트 8080~8082 가 겹친다.
+
+services:
+  # ADR-006 Database per Service. server-a 와 server-c 는 각자 독립 MySQL 인스턴스.
+  # server-b 는 Redis only (MySQL 없음).
+  mysql-a:
+    image: mysql:8.0
+    container_name: coupon-mysql-a
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_USER: promotion
+      MYSQL_PASSWORD: promotion
+      # 단일 schema 만 자동 생성 — 사용자 promotion 에 자동 권한 부여.
+      MYSQL_DATABASE: server_a
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_a_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-prootpassword"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - coupon-net
+
+  mysql-c:
+    image: mysql:8.0
+    container_name: coupon-mysql-c
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_USER: promotion
+      MYSQL_PASSWORD: promotion
+      MYSQL_DATABASE: server_c
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_c_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-prootpassword"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - coupon-net
+
+  # 호스트 6379 는 비어 있지만, jamo-redis(6380) 처럼 프로젝트별로 옮겨 둔다.
+  redis:
+    image: redis:7-alpine
+    container_name: coupon-redis
+    ports:
+      - "6381:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - coupon-net
+
+  # KRaft 단일 broker. 호스트에서 붙는 리스너는 HOST(29093).
+  # ⚠️ 호스트 포트를 바꾸면 KAFKA_LISTENERS 와 KAFKA_ADVERTISED_LISTENERS 의 HOST 포트도
+  #    **같이** 바꿔야 한다. advertised 가 다르면 클라이언트가 접속 후 엉뚱한 포트로 재접속한다.
+  kafka:
+    image: apache/kafka:3.7.0
+    container_name: coupon-kafka
+    # 단일 broker 가 부하에서 단일 코어 saturation. 호스트 자원 양보 명시 (Mac dev 환경).
+    cpus: 2.0
+    ports:
+      - "29093:29093"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: INTERNAL://0.0.0.0:9092,CONTROLLER://0.0.0.0:9094,HOST://0.0.0.0:29093
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:9092,HOST://localhost:29093
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT,HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9094
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      # 원본과 동일 — 토픽은 애플리케이션이 명시적으로 만든다 (오타로 유령 토픽이 생기는 것 방지).
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      CLUSTER_ID: 4L6g3nShT-eMCtK--X86sw
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 >/dev/null 2>&1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+    networks:
+      - coupon-net
+
+volumes:
+  mysql_a_data:
+  mysql_c_data:
+  redis_data:
+  kafka_data:
+
+networks:
+  coupon-net:
+    driver: bridge
