@@ -1,4 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  type OnApplicationBootstrap,
+} from '@nestjs/common';
 import { Interval } from '@nestjs/schedule';
 import { OutboxEventRepository } from '../domain/outbox-event.repository';
 import { IssueResultPublisher } from '../infrastructure/kafka/issue-result.publisher';
@@ -22,7 +26,7 @@ const POLL_INTERVAL_MS = Number(process.env.OUTBOX_POLL_INTERVAL_MS ?? 500);
  * server-b 의 Redis 갱신이 멱등이라 안전하다.
  */
 @Injectable()
-export class OutboxPoller {
+export class OutboxPoller implements OnApplicationBootstrap {
   private readonly logger = new Logger(OutboxPoller.name);
   private readonly batchSize = Number(process.env.OUTBOX_BATCH_SIZE ?? 50);
 
@@ -33,6 +37,11 @@ export class OutboxPoller {
     private readonly repository: OutboxEventRepository,
     private readonly publisher: IssueResultPublisher,
   ) {}
+
+  /** Spring `fixedDelay` 는 기동 직후 1회 실행한다 — `@Interval` 은 아니므로 맞춰준다. */
+  async onApplicationBootstrap(): Promise<void> {
+    await this.poll();
+  }
 
   @Interval(POLL_INTERVAL_MS)
   async poll(): Promise<void> {

@@ -159,8 +159,11 @@ TS 로 옮길 때 전자는 `InvalidArgumentError`, 후자는 평범한 `Error` 
 |---|---|---|---|
 | `issue:pending:{userId}:{couponTypeId}` | Hash | 86400s | b → b |
 | `issue:pending:zset` | ZSet | 없음 | b → b |
-| `event:{eventId}` | Hash | 300s | c → c |
+| `event:{eventId}` | **String (JSON)** | 300s | c → c |
 | `coupon:available:{eventId}:{couponTypeId}` | String (존재=매진) | 86400s | **c → a** |
+
+⚠️ Hash 는 b 의 `issue:pending:*` 뿐이다. `event:{id}` 는 `EventView` 를 JSON 으로 직렬화한 String 이고
+(`opsForValue().set(...)`), `coupon:available:*` 도 String 이다.
 
 pending Hash 필드명: `requestId`, `userId`, `eventId`, `couponTypeId`, `status`, `createdAt`, `code`, `publishAttempts`, `lastPublishedAt`
 ZSet member: `"{userId}:{couponTypeId}"`, score: `lastPublishedAt` (최초엔 `createdAt`) epoch ms
@@ -201,7 +204,7 @@ ZSet member: `"{userId}:{couponTypeId}"`, score: `lastPublishedAt` (최초엔 `c
 
 ---
 
-## 11. 체크리스트 — 계약을 건드리는 PR 이면 전부 통과해야 함
+## 10-1. 체크리스트 — 계약을 건드리는 PR 이면 전부 통과해야 함
 
 - [ ] 경로·메서드가 §1/§2 표와 **문자 단위로** 일치하는가
 - [ ] 응답 봉투 형태와 `null` 생략 규칙이 §3 과 같은가 (`usedAt` 예외 포함)

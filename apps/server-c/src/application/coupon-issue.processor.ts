@@ -58,11 +58,20 @@ export class CouponIssueProcessor {
       if (e instanceof DuplicateUserCouponError) {
         // 1번 단락을 통과한 뒤 동시 요청이 먼저 INSERT 한 경우. UNIQUE 가 권위이므로 멱등 종료.
         //
-        // ⚠️ 여기서 **트랜잭션은 이미 롤백됐다** — 재고 차감도 함께 되돌아간다. 이게 중요하다.
-        //    원본은 JPA 라 INSERT 가 커밋 시점까지 지연돼 제약 위반도 커밋에서 터지고 롤백됐다.
-        //    우리는 `insert()` 로 즉시 실행하므로, 여기서 잡고 early-return 해 버리면
-        //    **차감된 재고만 커밋되고 쿠폰은 없는** 재고 누수가 생긴다. 그래서 예외를 트랜잭션
-        //    밖까지 올려 롤백시킨 뒤 이 자리에서 멱등 종료한다 (최종 상태는 원본과 동일).
+        // ⚠️ 여기서 **트랜잭션은 이미 롤백됐다** — 재고 차감도 함께 되돌아간다. 이게 핵심이다.
+        //
+        //    원본도 순효과는 롤백이다: `UserCouponJpaEntity` 는 `@GeneratedValue(IDENTITY)` 라
+        //    `save()` 시점에 INSERT 가 즉시 나가고, 제약 위반이 나면 Hibernate 세션이
+        //    rollback-only 로 마킹되어 catch 후 early-return 해도 커밋이 실패한다.
+        //
+        //    우리는 그 순효과를 **명시적으로** 만든다. 예외를 트랜잭션 안에서 잡고 early-return 하면
+        //    차감된 재고만 커밋되고 쿠폰은 없는 누수가 생기므로, 반드시 트랜잭션 밖까지 올린다.
+        //    (원본과의 유일한 차이는 컨슈머 재시도 유발 여부다. 재시도해도 1번 exists 단락이라
+        //     결과는 같다.)
+        //
+        // ⚠️ 이 catch 는 SUCCESS 경로뿐 아니라 **FAILED / SOLD_OUT 경로의 insert 중복까지** 덮는다.
+        //    원본은 SUCCESS 의 saveResult 한 줄만 try 로 감쌌다. 어느 경로든 "이미 이 사용자의
+        //    row 가 있다" 는 뜻이라 멱등 종료가 맞고, 재고는 롤백되어 보존된다.
         this.logger.log(
           `unique violation on user_coupon insert (idempotent): userId=${request.userId}, couponTypeId=${request.couponTypeId}`,
         );

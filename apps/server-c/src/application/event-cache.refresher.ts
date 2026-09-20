@@ -1,4 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  type OnApplicationBootstrap,
+} from '@nestjs/common';
 import { Interval } from '@nestjs/schedule';
 import { DataSource } from 'typeorm';
 import { EventRepository } from '../domain/event.repository';
@@ -21,7 +25,7 @@ const REFRESH_INTERVAL_MS = Number(process.env.EVENT_CACHE_REFRESH_MS ?? 60000);
  * 이후 Redis 쓰기 루프를 트랜잭션 안에 두면 커넥션만 그 시간만큼 잡고 있게 된다 (원본 §10).
  */
 @Injectable()
-export class EventCacheRefresher {
+export class EventCacheRefresher implements OnApplicationBootstrap {
   private readonly logger = new Logger(EventCacheRefresher.name);
   private running = false;
 
@@ -30,6 +34,15 @@ export class EventCacheRefresher {
     private readonly cacheStore: EventCacheStore,
     private readonly dataSource: DataSource,
   ) {}
+
+  /**
+   * ⚠️ Spring 의 `@Scheduled(fixedDelay)` 는 **기동 직후 1회 즉시 실행**하고 그 다음부터 delay 를 둔다.
+   * Nest 의 `@Interval` 은 첫 실행이 interval 경과 후라, 이게 없으면 부팅 후 60초 동안
+   * 캐시 워밍이 없어 그 구간 요청이 전부 DB 로 간다 (평가항목 ③ 에서 관측된다).
+   */
+  async onApplicationBootstrap(): Promise<void> {
+    await this.refreshActiveEvents();
+  }
 
   @Interval(REFRESH_INTERVAL_MS)
   async refreshActiveEvents(): Promise<void> {
