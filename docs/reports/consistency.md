@@ -7,6 +7,7 @@
 - **분산 정합성** ← 현재 문서
 - [캐시 전략](cache.md)
 - [Node 런타임 제약](runtime.md)
+- [부하 검증](load-test.md)
 
 [← README](../../README.md)
 

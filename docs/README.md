@@ -22,7 +22,8 @@
 | [분산 정합성](reports/consistency.md) | Outbox, UNIQUE 멱등, 보완 스케줄러의 30초 SLA |
 | [캐시 전략](reports/cache.md) | Refresh-Ahead 로 TTL 만료 제거, 매진 negative cache |
 | [Node 런타임 제약](reports/runtime.md) | 단일 이벤트 루프, 부팅 차단 사고, timeout 의미 차이 |
+| [부하 검증](reports/load-test.md) | k6 1,000 TPS 측정. 설계 시나리오 통과, 전 구간 부하 시 server-c 가 상한 |
 
 ## 앞으로 추가될 것
 
-- 부하 검증 — k6 측정 결과 및 인프라 사이징
+- 1 vCPU 제약 하 재측정 및 인프라 사이징

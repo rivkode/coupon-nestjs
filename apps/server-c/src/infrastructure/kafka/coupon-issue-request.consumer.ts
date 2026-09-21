@@ -60,6 +60,10 @@ export class CouponIssueRequestConsumer
   private readonly maxDeliveryAttempts = Number(
     process.env.KAFKA_MAX_DELIVERY_ATTEMPTS ?? 10,
   );
+  /** 커밋 주기 (실험용 노브). 1 = ack-mode RECORD. */
+  private readonly commitThreshold = Number(
+    process.env.KAFKA_COMMIT_THRESHOLD ?? 1,
+  );
 
   constructor(
     @Inject(KAFKA_CLIENT) private readonly kafka: Kafka,
@@ -133,7 +137,7 @@ export class CouponIssueRequestConsumer
     await this.consumer.run({
       // ack-mode RECORD — threshold 1 이라 resolve 된 레코드마다 커밋된다.
       autoCommit: true,
-      autoCommitThreshold: 1,
+      autoCommitThreshold: this.commitThreshold,
       // throttle 로 남겨둔 레코드가 유실되지 않도록 반드시 false (클래스 주석 참고).
       eachBatchAutoResolve: false,
       partitionsConsumedConcurrently: this.concurrency,
