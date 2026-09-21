@@ -18,7 +18,7 @@ Nest CLI 모노레포 — 원본의 Gradle 서브프로젝트와 1:1 대응한�
 | 앱 | 포트 | 책임 | 저장소 |
 |---|---|---|---|
 | `apps/server-a` | 8080 | 진입 · `X-User-Id` 인증 · 매진 단락 · 요청 로그 · B 호출(Circuit Breaker) | MySQL-A + Redis(읽기) |
-| `apps/server-b` | 8081 | Redis 적재 → 즉시 "접수 완료" → Kafka publish → 결과 캐시 → pending 스케줄러 | **Redis only** |
+| `apps/server-b` | 8081 | Redis 적재 → 즉시 "접수 완료" → Kafka publish → 결과 캐시 → pending 스케줄러(30s SLA) | **Redis only** |
 | `apps/server-c` | 8082 | 영구 저장 · 재고 권위(비관적 락) · Outbox · redeem(낙관적 락) · 이벤트 캐시 | MySQL-C + Redis |
 | `libs/common` | — | 공통 payload/enum + 응답 봉투 · 예외 · 파이프 · DataSource 옵션 | — |
 
@@ -110,6 +110,7 @@ npm run format        # prettier
 |---|---|
 | `test/envelope.e2e-spec.ts` | 응답 봉투 · 에러코드 매핑. 특히 **server-b 만 다른 두 지점**(`INTERNAL_STATE` 500, `MISSING_HEADER` 핸들러 부재)은 원본의 의도된 차이이므로 통일하지 말 것 |
 | `test/server-c/persistence.e2e-spec.ts` | 동시성/멱등성 — 비관락 oversell 방지(ADR-003), 조건부 UPDATE 낙관락(ADR-N03), UNIQUE 제약 구분(ADR-004) |
+| `apps/*/src/**/*.spec.ts` | Kafka consumer 설정(유실·오프셋 함정), 스케줄러 3분기(ADR-008), c 의 404 해석 |
 
 영속 계층 테스트는 실제 MySQL 이 필요하고 **전용 스키마 `server_c_test`** 를 쓴다 (개발 DB 오염 방지):
 
@@ -142,6 +143,6 @@ npm run test:e2e
 
 - [x] **1단계 — 기반**: 모노레포 전환, DataSource 2개, 마이그레이션 이관, 응답 봉투 + 전역 예외 필터, 헬스체크
 - [x] **2단계 — `server-c`**: 엔티티 5 → 리포지토리 → 발급 트랜잭션(비관락) → redeem(낙관락, ADR-N03) → Outbox poller → 이벤트 캐시(Refresh-Ahead) → Kafka consumer(throttle) → 공개 API 3 + internal API 1
-- [ ] 3단계 — `server-b`: Redis store → 접수 서비스 → Kafka producer/consumer → pending 스케줄러
+- [x] **3단계 — `server-b`**: Redis store(pending hash + ZSet) → 접수 서비스(ADR-001) → Kafka 양방향 → pending 스케줄러(ADR-008, 30s SLA) → internal 접수 API + `/actuator/prometheus`
 - [ ] 4단계 — `server-a`: 매진 단락 → Circuit Breaker 클라이언트 → 발급 컨트롤러
 - [ ] 5단계 — 검증: e2e 계약 대조 → k6 재측정 → 사이징 문서화

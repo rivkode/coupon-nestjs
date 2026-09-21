@@ -11,5 +11,7 @@ export * from './api/validation';
 export * from './coupon/coupon-code';
 export * from './coupon/payloads';
 export * from './coupon/statuses';
+export * from './observability/counters';
+export * from './observability/metrics.controller';
 export * from './persistence/mysql-options';
 export * from './persistence/tx-context';
