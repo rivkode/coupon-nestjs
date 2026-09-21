@@ -28,7 +28,9 @@ export const REDIS_CLIENT = Symbol('REDIS_CLIENT');
           port: Number(process.env.REDIS_PORT ?? 6379),
           connectTimeout: Number(process.env.REDIS_CONNECT_TIMEOUT_MS ?? 1000),
           commandTimeout: Number(process.env.REDIS_TIMEOUT_MS ?? 1000),
-          // 캐시는 권위가 아니다 — 재시도로 이벤트 루프를 붙잡느니 빨리 실패하고 DB 로 fallback 한다.
+          // ⚠️ b 에는 DB fallback 이 없다 (ADR-006 — 이 Redis 가 유일한 저장소).
+          // 그래도 재시도로 이벤트 루프를 붙잡으면 접수 응답 latency 가 무너지므로 빨리 실패시키고,
+          // 회복은 ADR-008 스케줄러에 맡긴다 (publish 실패와 같은 취급).
           maxRetriesPerRequest: 1,
         }),
     },

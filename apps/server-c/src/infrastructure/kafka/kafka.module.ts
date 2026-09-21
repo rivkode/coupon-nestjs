@@ -21,7 +21,8 @@
  * │ delivery.timeout.ms              │ 120000     │ 30000    │ **등가 없음**                      │
  * │ linger.ms                        │ 0          │ 5        │ **등가 없음** (send 단위 배칭)      │
  * │ batch.size                       │ 16384      │ (b만 설정)│ **등가 없음**                      │
- * │ compression.type                 │ none       │ (b만 lz4)│ send({compression}) 기본 none     │
+ * │ compression.type                 │ none       │ (b만 lz4)│ GZIP 만 구현. **LZ4/Snappy/ZSTD 는 │
+ * │                                  │            │          │ KafkaJSNotImplemented** 를 던진다  │
  * └──────────────────────────────────┴────────────┴──────────┴──────────────────────────────────┘
  *
  * ■ Consumer  (⚠️ 표시는 기본값이 달라 명시 설정이 필요한 것)
@@ -114,7 +115,14 @@ export class KafkaModule implements OnModuleInit {
    *
    * (producer/consumer 의 연결 정리는 각자 `OnApplicationShutdown` 에서 한다.)
    */
-  async onModuleInit(): Promise<void> {
+  onModuleInit(): void {
+    // ⚠️ await 하지 않는다. 원본 `admin.operation-timeout: 5s` 는 부팅 지연 상한이기도 한데
+    //    kafkajs admin 은 기본 재시도만으로 10초 넘게 붙잡는다. producer/consumer 와 마찬가지로
+    //    토픽 보장은 백그라운드로 돌린다.
+    void this.ensureTopics();
+  }
+
+  private async ensureTopics(): Promise<void> {
     const admin = this.kafka.admin();
     try {
       await admin.connect();

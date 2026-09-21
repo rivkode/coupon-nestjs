@@ -33,6 +33,7 @@ export class CouponIssueResultConsumer
   private readonly logger = new Logger(CouponIssueResultConsumer.name);
   private consumer!: Consumer;
   private startPromise?: Promise<void>;
+  private stopped = false;
 
   /** 원본 server-b `max-poll-records: 50`. */
   private readonly maxRecordsPerBatch = Number(
@@ -52,14 +53,41 @@ export class CouponIssueResultConsumer
 
   /** 기동을 await 하지 않는다 — 브로커 장애가 부팅 실패가 되면 안 된다. */
   onModuleInit(): void {
-    this.startPromise = this.start().catch((e: unknown) => {
-      this.logger.error(`kafka consumer failed to start: ${String(e)}`);
-    });
+    this.startPromise = this.startWithRetry();
   }
 
   /** 기동 완료(또는 실패)까지 대기 — 테스트 전용. */
   async whenStarted(): Promise<void> {
     await this.startPromise;
+  }
+
+  /**
+   * 브로커/토픽이 준비될 때까지 **계속 재시도**한다.
+   *
+   * ⚠️ 한 번 실패하고 끝내면 안 된다. 원본의 `@KafkaListener` 컨테이너는 브로커가 없거나
+   *    토픽이 아직 없어도 백그라운드에서 무한 재시도하다가 붙는다. 여기서 포기하면
+   *    "앱은 떠 있는데 메시지를 영원히 소비하지 않는" 상태가 된다 — 실제로 토픽 생성과
+   *    구독의 레이스에서 `This server does not host this topic-partition` 로 죽었다.
+   */
+  private async startWithRetry(): Promise<void> {
+    const MAX_BACKOFF_MS = 30_000;
+    let backoffMs = 1_000;
+
+    while (!this.stopped) {
+      try {
+        await this.start();
+        return;
+      } catch (e) {
+        // 부분 연결 상태가 남지 않도록 정리하고 다음 시도에서 새로 만든다.
+        await this.consumer?.disconnect().catch(() => undefined);
+        if (this.stopped) return;
+        this.logger.warn(
+          `kafka consumer start failed (retrying in ${backoffMs}ms): ${String(e)}`,
+        );
+        await new Promise((resolve) => setTimeout(resolve, backoffMs));
+        backoffMs = Math.min(backoffMs * 2, MAX_BACKOFF_MS);
+      }
+    }
   }
 
   private async start(): Promise<void> {
@@ -108,6 +136,7 @@ export class CouponIssueResultConsumer
   }
 
   async onApplicationShutdown(): Promise<void> {
+    this.stopped = true;
     await this.startPromise?.catch(() => undefined);
     await this.consumer?.disconnect().catch(() => undefined);
   }

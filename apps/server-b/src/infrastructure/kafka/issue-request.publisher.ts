@@ -1,4 +1,8 @@
-import type { CouponIssueRequestPayload } from '@app/common';
+import {
+  assertIssueRequestPayload,
+  withTimeout,
+  type CouponIssueRequestPayload,
+} from '@app/common';
 import {
   Inject,
   Injectable,
@@ -77,6 +81,25 @@ export class IssueRequestPublisher
   }
 
   private async publishWithTimeout(
+    payload: CouponIssueRequestPayload,
+    timeoutMs: number,
+  ): Promise<void> {
+    // 원본 record 의 compact constructor 검증. 실패하면 publish 하지 않고 예외를 올린다 —
+    // 호출 측이 그것을 삼켜서 "잘못된 메시지는 토픽에 나가지 않는다" 는 원본 동작이 된다.
+    assertIssueRequestPayload(payload);
+
+    // ⚠️ `send({ timeout })` 만으로는 호출 대기가 제한되지 않는다 — 그 값은 브로커의 ack 대기값이고
+    //    로컬 재시도(retry.retries)나 미연결 시의 connect() 대기를 끊지 못한다.
+    //    원본은 `future.get(timeoutMs)` 로 호출 스레드를 하드 바운드했으므로 같은 의미로 감싼다.
+    //    이 상한이 없으면 스케줄러의 500ms 가드가 무력해져 cycle 이 폭주한다 (ADR-008).
+    await withTimeout(
+      this.sendInternal(payload, timeoutMs),
+      timeoutMs,
+      `kafka send timed out after ${timeoutMs}ms: requestId=${payload.requestId}`,
+    );
+  }
+
+  private async sendInternal(
     payload: CouponIssueRequestPayload,
     timeoutMs: number,
   ): Promise<void> {

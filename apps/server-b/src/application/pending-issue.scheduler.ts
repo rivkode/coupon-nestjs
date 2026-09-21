@@ -69,9 +69,15 @@ export class PendingIssueScheduler implements OnApplicationBootstrap {
     private readonly publisher: IssueRequestPublisher,
   ) {}
 
-  /** Spring `fixedDelay` 는 기동 직후 1회 실행한다 — `@Interval` 은 아니므로 맞춰준다. */
-  async onApplicationBootstrap(): Promise<void> {
-    await this.run();
+  /**
+   * Spring `fixedDelay` 는 기동 직후 1회 실행한다 — `@Interval` 은 안 돌아서 맞춰준다.
+   *
+   * ⚠️ **await 하지 않는다.** Nest 는 bootstrap 훅을 await 한 뒤에야 포트를 연다.
+   *    첫 cycle 이 느리면(예: stale 50건 × c 호출 1.5s) 그만큼 HTTP 포트가 안 열려
+   *    health probe 가 실패한다. Spring 은 별도 스케줄러 스레드라 기동을 막지 않는다.
+   */
+  onApplicationBootstrap(): void {
+    void this.run();
   }
 
   @Interval(FIXED_DELAY_MS)

@@ -8,6 +8,7 @@ export * from './api/local-date-time';
 export * from './api/parse-long.pipe';
 export * from './api/user-id.decorator';
 export * from './api/validation';
+export * from './async/with-timeout';
 export * from './coupon/coupon-code';
 export * from './coupon/payloads';
 export * from './coupon/statuses';

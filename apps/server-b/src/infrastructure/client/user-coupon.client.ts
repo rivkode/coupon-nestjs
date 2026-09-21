@@ -22,7 +22,11 @@ interface Envelope {
  * `PendingIssueScheduler` 가 ADR-008 의 1단계(“C 가 이미 처리했는가”)에서 쓴다.
  *
  * 원본 yml: `app.server-c.base-url`, `timeout-ms: 1500`
- * (connect timeout 은 `min(timeoutMs, 1000)`).
+ *
+ * ⚠️ **미이관**: 원본은 connect timeout 과 read timeout 을 나눠 잡는다
+ *    (`connectTimeout = min(timeoutMs, 1000)`, `readTimeout = 1500`).
+ *    axios 에는 연결 타임아웃 개념이 따로 없어 `timeout: 1500` 하나만 건다 —
+ *    연결 지연 상한이 1000ms → 1500ms 로 늘어난다.
  *
  * **404 는 예외가 아니라 `null`** 이다 — "아직 처리 전" 이라는 정상 상태이고,
  * 스케줄러는 다음 단계(재발행)로 넘어가야 한다.

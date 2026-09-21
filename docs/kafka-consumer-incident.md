@@ -236,9 +236,23 @@ coupon-issue-server-c coupon-issue-request 2          51              51        
 | admin `fail-fast` | `false` — 브로커 없어도 앱은 뜬다 | 토픽 생성 실패 시 **부팅 실패** | catch + warn 후 계속 |
 | producer 연결 | `KafkaTemplate` 은 lazy | `await producer.connect()` 가 **부팅을 막음** | 백그라운드 연결, publish 시 재시도 |
 | consumer 기동 | 리스너 컨테이너가 별도 스레드에서 재시도 | `await consumer.connect()` 가 **부팅을 막음** | 백그라운드 기동 |
+| consumer 기동 실패 | 무한 재시도 후 결국 붙음 | 1회 실패 후 **영구 포기** (앱은 떠 있는데 소비 안 함) | backoff 재시도 루프 (1s→30s) |
+| publish timeout | `future.get(ms)` 로 호출 대기 하드 바운드 | `send({timeout})` 은 브로커 ack 대기값일 뿐 — 로컬 재시도/연결 대기를 못 끊음 | `withTimeout` 래퍼로 하드 바운드 |
+| scheduler/poller 첫 실행 | 별도 스케줄러 스레드 | `onApplicationBootstrap` 을 await → **포트 바인딩 지연** | fire-and-forget |
 
 `poison message` 무한 재시도는 실제로 관측됐다. 테스트 데이터가 placeholder code 충돌을 일으켰고,
 그 레코드가 같은 파티션을 영구히 막았다 (초당 1회씩 같은 INSERT 를 재시도).
+
+### 4.0 consumer 기동 실패가 영구적이었다 (3단계에서 발견)
+
+admin 의 토픽 생성을 비차단으로 바꾸자 **토픽 생성과 consumer 구독의 레이스**가 드러났다.
+server-b 의 result consumer 가 `This server does not host this topic-partition` 로 실패했는데,
+당시 `start()` 의 catch 가 로그만 남기고 끝나서 **앱은 떠 있는데 메시지를 영원히 소비하지 않는**
+상태가 됐다.
+
+원본의 `@KafkaListener` 컨테이너는 브로커/토픽이 준비될 때까지 백그라운드에서 무한 재시도한다.
+지수 backoff(1s → 30s) 재시도 루프를 넣어 같은 동작으로 맞췄다. 검증: 토픽이 없는 상태에서 기동 →
+b 가 1회 실패 후 1초 뒤 재시도로 붙고, HTTP 는 1.1초 만에 응답.
 
 ### 4.1 "브로커 없이 부팅" 은 세 곳을 다 고쳐야 했다
 

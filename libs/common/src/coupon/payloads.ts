@@ -1,7 +1,8 @@
 import { InvalidArgumentError } from '../api/errors';
-import type {
-  CouponIssueResultStatus,
-  IssueAcceptanceStatus,
+import {
+  COUPON_ISSUE_RESULT_STATUSES,
+  type CouponIssueResultStatus,
+  type IssueAcceptanceStatus,
 } from './statuses';
 
 /**
@@ -77,6 +78,11 @@ export interface CouponIssueResultPayload {
 export function assertIssueResultPayload(p: CouponIssueResultPayload): void {
   if (p.requestId == null) throw new Error('requestId');
   if (p.status == null) throw new Error('status');
+  // 원본은 Jackson 의 enum 역직렬화가 알 수 없는 값을 거부해 "malformed → skip" 으로 끝난다.
+  // 여기서 값 집합을 확인하지 않으면 매핑 단계에서 throw 해 **재시도 루프**로 들어간다.
+  if (!COUPON_ISSUE_RESULT_STATUSES.includes(p.status)) {
+    throw new Error(`unknown status: ${String(p.status)}`);
+  }
   if (p.status === 'SUCCESS' && p.couponCode == null) {
     throw new Error('couponCode (status=SUCCESS)');
   }
