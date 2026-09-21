@@ -34,7 +34,8 @@ describe('CouponIssueRequestConsumer — ADR-009 throttle 설정', () => {
 
   it('eachBatchAutoResolve 가 false 다 — true 면 throttle 로 건너뛴 레코드가 영구 유실된다', async () => {
     const { consumer, runOptions } = setup();
-    await consumer.onModuleInit();
+    consumer.onModuleInit();
+    await consumer.whenStarted();
 
     // kafkajs 기본값이 true 이고, true 면 eachBatch 종료 시 batch.lastOffset() 을 통째로 resolve 한다
     expect(runOptions.eachBatchAutoResolve).toBe(false);
@@ -42,7 +43,8 @@ describe('CouponIssueRequestConsumer — ADR-009 throttle 설정', () => {
 
   it('autoCommit + threshold 1 로 ack-mode RECORD 를 만든다 — autoCommit:false 면 오프셋이 영원히 커밋되지 않는다', async () => {
     const { consumer, runOptions } = setup();
-    await consumer.onModuleInit();
+    consumer.onModuleInit();
+    await consumer.whenStarted();
 
     expect(runOptions.autoCommit).toBe(true);
     expect(runOptions.autoCommitThreshold).toBe(1);
@@ -50,14 +52,16 @@ describe('CouponIssueRequestConsumer — ADR-009 throttle 설정', () => {
 
   it('partitionsConsumedConcurrently 가 원본 listener.concurrency(1) 와 같다', async () => {
     const { consumer, runOptions } = setup();
-    await consumer.onModuleInit();
+    consumer.onModuleInit();
+    await consumer.whenStarted();
 
     expect(runOptions.partitionsConsumedConcurrently).toBe(1);
   });
 
   it('group-id / earliest / max.poll.interval 이 원본 yml 과 같다', async () => {
     const { consumer, consumerFactory, consumerStub } = setup();
-    await consumer.onModuleInit();
+    consumer.onModuleInit();
+    await consumer.whenStarted();
 
     expect(consumerFactory).toHaveBeenCalledWith(
       expect.objectContaining({

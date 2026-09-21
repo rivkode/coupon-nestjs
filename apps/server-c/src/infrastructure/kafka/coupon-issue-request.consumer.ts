@@ -41,6 +41,7 @@ export class CouponIssueRequestConsumer
 {
   private readonly logger = new Logger(CouponIssueRequestConsumer.name);
   private consumer!: Consumer;
+  private startPromise?: Promise<void>;
 
   /** 원본 `max-poll-records: 10`. */
   private readonly maxRecordsPerBatch = Number(
@@ -64,7 +65,26 @@ export class CouponIssueRequestConsumer
     private readonly processor: CouponIssueProcessor,
   ) {}
 
-  async onModuleInit(): Promise<void> {
+  /**
+   * ⚠️ consumer 기동을 **await 하지 않는다.** 원본의 `@KafkaListener` 컨테이너는 별도 스레드에서
+   * 시작하고 브로커가 없으면 백그라운드에서 재시도할 뿐, 애플리케이션 기동을 막지 않는다.
+   * 여기서 `await connect()` 를 하면 브로커 장애가 곧 부팅 실패가 되어
+   * server-c 의 HTTP API(redeem / 내 쿠폰 / 이벤트 조회)까지 함께 죽는다.
+   *
+   * 테스트는 `whenStarted()` 로 기동 완료를 기다린다.
+   */
+  onModuleInit(): void {
+    this.startPromise = this.start().catch((e: unknown) => {
+      this.logger.error(`kafka consumer failed to start: ${String(e)}`);
+    });
+  }
+
+  /** 기동 완료(또는 실패)까지 기다린다 — 테스트 전용. */
+  async whenStarted(): Promise<void> {
+    await this.startPromise;
+  }
+
+  private async start(): Promise<void> {
     this.consumer = this.kafka.consumer({
       // 원본 group-id 그대로 — 바꾸면 오프셋이 초기화되어 이미 처리한 메시지를 다시 먹는다.
       groupId: 'coupon-issue-server-c',
@@ -118,8 +138,9 @@ export class CouponIssueRequestConsumer
   }
 
   async onApplicationShutdown(): Promise<void> {
+    await this.startPromise?.catch(() => undefined);
     // 이게 없으면 consumer 가 group 에 rebalance 흔적을 남기고 죽는다 (ADR-N02).
-    await this.consumer?.disconnect();
+    await this.consumer?.disconnect().catch(() => undefined);
   }
 
   /**

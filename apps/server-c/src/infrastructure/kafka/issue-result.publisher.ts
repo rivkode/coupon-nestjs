@@ -1,6 +1,7 @@
 import {
   Inject,
   Injectable,
+  Logger,
   type OnApplicationShutdown,
   type OnModuleInit,
 } from '@nestjs/common';
@@ -23,13 +24,24 @@ import { KAFKA_CLIENT, kafkaTopics } from './kafka.module';
 export class IssueResultPublisher
   implements OnModuleInit, OnApplicationShutdown
 {
+  private readonly logger = new Logger(IssueResultPublisher.name);
   private producer!: Producer;
+  private connected = false;
+  private connecting?: Promise<void>;
   private readonly sendTimeoutMs = Number(
     process.env.KAFKA_SEND_TIMEOUT_MS ?? 3000,
   );
 
   constructor(@Inject(KAFKA_CLIENT) private readonly kafka: Kafka) {}
 
+  /**
+   * ⚠️ 연결을 **await 하지 않는다.** 원본의 `KafkaTemplate` 은 lazy 라 브로커가 없어도
+   * 애플리케이션이 기동하고 HTTP(redeem/조회)는 정상 동작한다. 여기서 `await connect()` 를 하면
+   * 브로커 장애가 곧 부팅 실패가 되어 c 의 API 까지 죽는다.
+   *
+   * 연결 전에 들어온 publish 는 예외가 되고, `OutboxPoller` 가 row 를 PENDING 으로 남겨
+   * 다음 주기에 재시도한다 (at-least-once 유지).
+   */
   async onModuleInit(): Promise<void> {
     this.producer = this.kafka.producer({
       // acks=all + idempotence — kafkajs 는 idempotent 를 켜면 acks=-1(all) 을 강제한다.
@@ -38,11 +50,22 @@ export class IssueResultPublisher
       // 원본 수치를 지키는 쪽을 택했다 (무제한 재시도는 1 vCPU 에서 더 위험).
       retry: { retries: 5 },
     });
-    await this.producer.connect();
+    // 백그라운드 연결. 실패해도 부팅을 막지 않는다 — publish 시점에 재시도된다.
+    this.connecting = this.producer
+      .connect()
+      .then(() => {
+        this.connected = true;
+      })
+      .catch((e: unknown) => {
+        this.logger.warn(
+          `kafka producer connect failed (will retry on publish): ${String(e)}`,
+        );
+      });
   }
 
   async onApplicationShutdown(): Promise<void> {
-    await this.producer?.disconnect();
+    await this.connecting?.catch(() => undefined);
+    await this.producer?.disconnect().catch(() => undefined);
   }
 
   /**
@@ -50,6 +73,13 @@ export class IssueResultPublisher
    * @param value JSON 직렬화된 `CouponIssueResultPayload`
    */
   async publish(key: string, value: string): Promise<void> {
+    if (!this.connected) {
+      // 최초 연결이 실패했던 경우 — 여기서 다시 시도한다. 또 실패하면 예외가 그대로 올라가
+      // poller 가 PENDING 으로 남기고 다음 주기에 재시도한다.
+      await this.producer.connect();
+      this.connected = true;
+    }
+
     await this.producer.send({
       topic: kafkaTopics.issueResult,
       messages: [{ key, value }],
