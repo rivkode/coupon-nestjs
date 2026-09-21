@@ -7,7 +7,7 @@ import type { EventView } from '../application/views';
  * 이벤트 조회 API (원본 `EventQueryController`) — 평가항목 ③ Hot Spot / Cache stampede 검증 대상.
  *
  * ⚠️ **인증 헤더를 받지 않는다.** 원본 컨트롤러도 `@PathVariable` 만 받는다.
- *    api-spec.md 의 "인증 (선택)" 표기는 부정확하다 (spec-parity §1).
+ *    api-spec.md 의 "인증 (선택)" 표기는 부정확하다 (api-contract §1).
  *
  * 매핑:
  *  - 200 — 캐시 또는 DB

@@ -10,7 +10,7 @@ import { CouponNotFoundError } from '../domain/exception/coupon-not-found.error'
  * 10 초 이상 pending 인 신청에 대해 b 가 이 endpoint 로 직접 조회 → 결과를 Redis 에 반영한다.
  *
  * ⚠️ **봉투를 사용한다** (`success`/`data`). 봉투 없이 raw 로 나가는 것은 server-b 의
- *    `POST /internal/v1/coupons/issue` 쪽이다 (spec-parity §2/§3).
+ *    `POST /internal/v1/coupons/issue` 쪽이다 (api-contract §2/§3).
  *
  * 매핑:
  *  - 200 — user_coupon 존재

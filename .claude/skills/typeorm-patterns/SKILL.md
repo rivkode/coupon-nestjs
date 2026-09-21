@@ -149,7 +149,7 @@ if (uc.userId !== command.userId) throw new CouponNotFoundError(...);
 
 | 계층 | ID 표현 | 근거 |
 |---|---|---|
-| wire (HTTP JSON / Kafka payload) | **`number`** | Java `long` 의 JSON 직렬화 결과. string 으로 실으면 계약이 깨진다 (spec-parity §9) |
+| wire (HTTP JSON / Kafka payload) | **`number`** | Java `long` 의 JSON 직렬화 결과. string 으로 실으면 계약이 깨진다 (api-contract §9) |
 | 도메인 모델 / 애플리케이션 | **`number`** | 비교·산술이 자연스럽고 wire 와 같아 변환 지점이 하나로 준다 |
 | ORM 엔티티 (DB 경계) | **`string`** | mysql2 가 그렇게 준다. 바꾸지 않는다 |
 

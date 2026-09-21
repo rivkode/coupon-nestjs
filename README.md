@@ -1,28 +1,124 @@
-# coupon-api-nestjs
+# 쿠폰 발급 시스템 (NestJS)
 
-선착순 쿠폰 발급 시스템 — **Java 21 / Spring Boot 3.5 / JPA → NestJS 12 / TypeORM 1.x 포팅**
+선착순 쿠폰 발급 시스템입니다. **1 vCPU / 2 GB 인스턴스에서 1,000 TPS 를 유실 없이 처리하는 것**이 목표이며,
+기술스택은 Node.js 22, NestJS 12, TypeORM 1.x, MySQL, Redis, Kafka 를 사용한 모노레포 프로젝트입니다.
 
-원본: [`~/dev/project/java/promotion-event`](../../java/promotion-event) (Gradle 멀티모듈)
-외부 인프라(MySQL · Redis · Kafka)는 원본 그대로 사용한다.
-
-> 이 프로젝트의 성공 기준은 기능 개선이 아니라 **스펙 동일성(parity)** 이다.
-> API 경로·응답 봉투·에러코드·테이블/컬럼명·Redis 키·Kafka 토픽은 한 글자도 바꾸지 않는다.
-> 설계 결정과 작업 규칙은 [`CLAUDE.md`](./CLAUDE.md) 참조.
+아키텍처(서비스 분리, 비동기 발급, Outbox, 비관적 락)는 [Java/Spring 구현](../../java/promotion-event)에서
+먼저 검증한 설계를 따릅니다. 이 저장소의 기술 보고서는 **같은 설계를 Node 런타임에서 실제로 성립시키기 위해
+무엇이 달랐고 무엇을 바꿨는지**를 다룹니다.
 
 ---
 
-## 구조
+# 문서
 
-Nest CLI 모노레포 — 원본의 Gradle 서브프로젝트와 1:1 대응한다.
+## 쿠폰 서비스 설계
+
+- [시스템 아키텍처 (data-flow)](docs/design/architecture.md)
+- [ERD / 데이터 모델](docs/design/erd.md)
+- [API 명세](docs/design/api-spec.md)
+- [기술 결정 기록](docs/decisions/README.md)
+
+## 기술 보고서
+
+- [Kafka — kafkajs 운영 보고서](docs/reports/kafka.md)
+  - Spring Kafka 의 `max.poll.records` / `ack-mode` / `fail-fast` 에 kafkajs 는 **대응 옵션이 없거나 기본값이 반대**다. 그대로 옮겼다가 메시지 유실과 오프셋 미커밋이 났고, 세 옵션을 맞물려 설정해 해결했다.
+- [동시성 제어](docs/reports/concurrency.md)
+  - 재고는 `SELECT ... FOR UPDATE` 로 직렬화한다. 반면 **TypeORM 의 `@VersionColumn` 은 낙관적 락으로 동작하지 않아** 조건부 UPDATE + `affected` 판정으로 구현했다.
+- [분산 정합성](docs/reports/consistency.md)
+  - Redis 적재 시점부터 at-least-once. Outbox 로 결과를 안전 발행하고, `(user_id, coupon_type_id)` UNIQUE 가 1인 1장 멱등을 보장한다. 유실 시 보완 스케줄러가 **30초 안에 SUCCESS 또는 FAILED 로 결론**을 낸다.
+- [캐시 전략](docs/reports/cache.md)
+  - 갱신 주기(60초) < TTL(300초) 로 두어 TTL 만료 자체를 없앤다. 매진은 negative cache 로 진입부에서 단락한다.
+- [Node 런타임 제약](docs/reports/runtime.md)
+  - 단일 이벤트 루프라 HTTP·consumer·스케줄러가 같은 루프를 공유한다. 부팅을 막는 `await` 하나가 포트 바인딩을 수십 초 지연시켰고, 의존 컴포넌트 연결은 전부 비차단으로 바꿨다.
+
+## 부하 검증
+
+아직 수행하지 않았습니다. Java 구현의 측정치(인스턴스당 977 req/s)는 **가상 스레드 기준**이라 그대로 쓸 수 없고,
+Node 는 단일 이벤트 루프라 별도 측정이 필요합니다. [Node 런타임 제약](docs/reports/runtime.md) 참조.
+
+---
+
+# 실행
+
+## 인프라
+
+MySQL 2대 · Redis · Kafka 가 필요합니다. 이 저장소의 `docker-compose.yml` 을 사용합니다.
+
+```bash
+docker compose up -d
+docker compose ps          # 넷 다 healthy 가 될 때까지 대기
+```
+
+호스트에서 돌고 있는 다른 프로젝트와 겹치지 않도록 포트를 옮겨 두었습니다.
+컨테이너 내부 포트와 스키마 이름은 그대로입니다.
+
+| 인프라 | 호스트 포트 | 비고 |
+|---|---|---|
+| MySQL-A | 3306 | schema `server_a` |
+| MySQL-C | 3307 | schema `server_c` |
+| Redis | 6381 | — |
+| Kafka | 29093 | HOST 리스너 |
+
+> Kafka 호스트 포트를 바꿀 때는 compose 의 `KAFKA_LISTENERS` 와 `KAFKA_ADVERTISED_LISTENERS` 의
+> HOST 포트도 **같이** 바꿔야 합니다. advertised 가 다르면 클라이언트가 접속 후 엉뚱한 포트로 재접속합니다.
+
+## 애플리케이션
+
+```bash
+npm install
+cp .env.example .env
+
+npm run start:a       # :8080
+npm run start:b       # :8081
+npm run start:c       # :8082
+```
+
+앱 부팅 시 마이그레이션이 자동 적용됩니다(`migrationsRun: true`). 수동 실행은 선택입니다.
+
+```bash
+npm run migration:a   # server_a (:3306)
+npm run migration:c   # server_c (:3307)
+```
+
+동작 확인:
+
+```bash
+curl -s localhost:8080/actuator/health      # {"status":"UP"}
+curl -s localhost:8081/actuator/prometheus  # 보완 스케줄러 카운터 (30초 SLA 관측)
+```
+
+## 검증
+
+```bash
+npm run typecheck     # tsc --noEmit
+npm run lint          # oxlint (type-aware)
+npm run test          # 단위 테스트
+npm run test:e2e      # API 계약 + 영속 계층 통합 테스트
+```
+
+영속 계층 테스트는 실제 MySQL 이 필요하고 **전용 스키마 `server_c_test`** 를 사용합니다.
+
+```bash
+docker exec coupon-mysql-c mysql -uroot -prootpassword \
+  -e "CREATE DATABASE IF NOT EXISTS server_c_test; GRANT ALL ON server_c_test.* TO 'promotion'@'%';"
+DB_NAME_C=server_c_test npm run migration:c
+npm run test:e2e
+```
+
+---
+
+# 구조
+
+Nest CLI 모노레포. 서비스별로 저장소를 분리합니다 (Database per Service).
 
 | 앱 | 포트 | 책임 | 저장소 |
 |---|---|---|---|
-| `apps/server-a` | 8080 | 진입 · `X-User-Id` 인증 · 매진 단락 · 요청 로그 · B 호출(Circuit Breaker) | MySQL-A + Redis(읽기) |
-| `apps/server-b` | 8081 | Redis 적재 → 즉시 "접수 완료" → Kafka publish → 결과 캐시 → pending 스케줄러(30s SLA) | **Redis only** |
-| `apps/server-c` | 8082 | 영구 저장 · 재고 권위(비관적 락) · Outbox · redeem(낙관적 락) · 이벤트 캐시 | MySQL-C + Redis |
-| `libs/common` | — | 공통 payload/enum + 응답 봉투 · 예외 · 파이프 · DataSource 옵션 | — |
+| `apps/server-a` | 8080 | 진입 · 인증 · 매진 단락 · 요청 로그 · B 호출(Circuit Breaker) | MySQL-A + Redis(읽기) |
+| `apps/server-b` | 8081 | 신청 적재 → 즉시 접수 응답 → Kafka 발행 → 결과 캐시 → 보완 스케줄러 | **Redis only** |
+| `apps/server-c` | 8082 | 영구 저장 · 재고 권위(비관적 락) · Outbox · 쿠폰 사용 | MySQL-C + Redis |
+| `libs/common` | — | 공통 payload/enum, 응답 봉투, 예외, 파이프, DataSource 옵션 | — |
 
-각 앱은 `api / application / domain / infrastructure` 4계층 (레이어드 + 경량 DDD, 헥사고날 미사용).
+각 앱은 4계층입니다 (레이어드 + 경량 DDD).
 
 ```
 apps/server-x/src/
@@ -32,117 +128,15 @@ apps/server-x/src/
 └── infrastructure/   ORM 엔티티·매퍼·리포지토리 구현, Redis, Kafka, HTTP 클라이언트
 ```
 
----
-
-## 실행
-
-### 사전 준비
-
-MySQL 2대 · Redis · Kafka 가 필요하다. **이 리포의 `docker-compose.yml`** 을 쓴다.
-
-```bash
-docker compose up -d
-docker compose ps          # 넷 다 healthy 가 될 때까지 대기
-```
-
-원본과 같은 이미지·같은 설정이지만, 호스트에서 돌고 있는 다른 프로젝트와 겹치지 않도록
-**포트만 옮겼다**. 컨테이너 내부 포트와 스키마 이름은 원본 그대로다.
-
-| 인프라 | 호스트 포트 | 원본 | 비고 |
-|---|---|---|---|
-| MySQL-A | 3306 | 3306 | schema `server_a` |
-| MySQL-C | 3307 | 3307 | schema `server_c` |
-| Redis | **6381** | 6379 | jamo-redis 가 6380 을 쓴다 |
-| Kafka | **29093** | 29092 | HOST 리스너 |
-
-> Kafka 호스트 포트를 바꿀 때는 compose 의 `KAFKA_LISTENERS` 와 `KAFKA_ADVERTISED_LISTENERS` 의
-> HOST 포트도 **같이** 바꿔야 한다. advertised 가 다르면 클라이언트가 접속 후 엉뚱한 포트로 재접속한다.
-
-> 원본 리포의 compose 와 **동시에 띄우지 말 것** — 앱 포트 8080~8082 가 겹친다.
-
-접속 정보는 `.env` 에 있다 (`.env.example` 복사).
-
-### 마이그레이션
-
-원본 Flyway SQL 을 TypeORM 마이그레이션으로 그대로 옮겼다 (DDL 원문 유지).
-앱 부팅 시 `migrationsRun: true` 로 자동 적용되지만, 수동 실행도 가능하다.
-
-```bash
-npm run migration:a   # server_a (:3306)
-npm run migration:c   # server_c (:3307)
-```
-
-a 와 c 는 서로 다른 MySQL 인스턴스라 포트 환경변수가 분리되어 있다 (`DB_PORT_A` / `DB_PORT_C`).
-
-### 앱 실행
-
-```bash
-npm install
-
-npm run start:a   # :8080  watch 모드
-npm run start:b   # :8081
-npm run start:c   # :8082
-
-# 프로덕션
-npm run build
-npm run start:prod:a
-```
-
-헬스체크는 원본과 같은 경로다.
-
-```bash
-curl -s localhost:8080/actuator/health   # {"status":"UP",...}
-```
+`domain/` 은 프레임워크를 import 하지 않습니다. 리포지토리는 `domain/` 에 abstract class 로 선언하고
+`infrastructure/` 에서 구현을 바인딩합니다.
 
 ---
 
-## 검증
+# 진행 상황
 
-```bash
-npm run typecheck     # tsc --noEmit
-npm run lint          # oxlint (type-aware)
-npm run test          # 단위 테스트
-npm run test:e2e      # 계약 테스트 (응답 봉투 / 에러코드 매핑)
-npm run format        # prettier
-```
-
-| 테스트 | 무엇을 고정하는가 |
-|---|---|
-| `test/envelope.e2e-spec.ts` | 응답 봉투 · 에러코드 매핑. 특히 **server-b 만 다른 두 지점**(`INTERNAL_STATE` 500, `MISSING_HEADER` 핸들러 부재)은 원본의 의도된 차이이므로 통일하지 말 것 |
-| `test/server-c/persistence.e2e-spec.ts` | 동시성/멱등성 — 비관락 oversell 방지(ADR-003), 조건부 UPDATE 낙관락(ADR-N03), UNIQUE 제약 구분(ADR-004) |
-| `apps/*/src/**/*.spec.ts` | Kafka consumer 설정(유실·오프셋 함정), 스케줄러 3분기(ADR-008), c 의 404 해석 |
-
-영속 계층 테스트는 실제 MySQL 이 필요하고 **전용 스키마 `server_c_test`** 를 쓴다 (개발 DB 오염 방지):
-
-```bash
-docker compose up -d
-docker exec coupon-mysql-c mysql -uroot -prootpassword \
-  -e "CREATE DATABASE IF NOT EXISTS server_c_test; GRANT ALL ON server_c_test.* TO 'promotion'@'%';"
-DB_NAME_C=server_c_test npm run migration:c
-npm run test:e2e
-```
-
----
-
-## 문서
-
-| 문서 | 내용 |
-|---|---|
-| [`CLAUDE.md`](./CLAUDE.md) | 프로젝트 헌법 — ADR(원본 승계 11 + NestJS 전용 6), 안티패턴, 코딩 컨벤션 |
-| `.claude/skills/spec-parity` | 동결된 계약 표 (API · 에러코드 · 스키마 · Redis 키 · Kafka payload) |
-| `.claude/skills/nest-ddd-layering` | 계층 규칙, DI 토큰 관례, 모델 분리 기준 |
-| `.claude/skills/typeorm-patterns` | 트랜잭션 · 락 · 마이그레이션 표준 + 검증된 함정 |
-| `.claude/skills/java-to-nest-porting` | 포팅 절차와 Spring/Java → Nest/TS 치환표 |
-
-설계의 원천(요구사항 · 아키텍처 · ERD · API 명세 · ADR 근거)은 **원본 리포의 `docs/`** 에 있다.
-여기서 요약본을 다시 만들지 않는다 — 원문을 읽는다.
-
----
-
-## 진행 상황
-
-- [x] **1단계 — 기반**: 모노레포 전환, DataSource 2개, 마이그레이션 이관, 응답 봉투 + 전역 예외 필터, 헬스체크
-- [x] **2단계 — `server-c`**: 엔티티 5 → 리포지토리 → 발급 트랜잭션(비관락) → redeem(낙관락, ADR-N03) → Outbox poller → 이벤트 캐시(Refresh-Ahead) → Kafka consumer(throttle) → 공개 API 3 + internal API 1
-- [x] **3단계 — `server-b`**: Redis store(pending hash + ZSet) → 접수 서비스(ADR-001) → Kafka 양방향 → pending 스케줄러(ADR-008, 30s SLA) → internal 접수 API + `/actuator/prometheus`
-- [ ] 4단계 — `server-a`: 매진 단락 → Circuit Breaker 클라이언트 → 발급 컨트롤러
-- [ ] 5단계 — 검증: e2e 계약 대조 → k6 재측정 → 사이징 문서화
+- [x] 기반 — 모노레포, DataSource 2개, 마이그레이션, 응답 봉투 + 전역 예외 필터
+- [x] `server-c` — 발급 트랜잭션(비관적 락), 쿠폰 사용(낙관적 락), Outbox, 이벤트 캐시, Kafka consumer
+- [x] `server-b` — Redis 적재, 접수 API, Kafka 양방향, 보완 스케줄러(30초 SLA)
+- [ ] `server-a` — 매진 단락, Circuit Breaker, 발급 요청 API
+- [ ] 부하 검증 — k6 측정 및 인프라 사이징

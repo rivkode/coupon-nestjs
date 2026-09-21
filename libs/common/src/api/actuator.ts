@@ -5,7 +5,7 @@ export interface ActuatorHealth {
 }
 
 /**
- * Terminus 결과를 Spring Actuator 의 `/actuator/health` 응답 형태로 바꾼다 (spec-parity §10).
+ * Terminus 결과를 Spring Actuator 의 `/actuator/health` 응답 형태로 바꾼다 (api-contract §10).
  *
  * Terminus: `{ status: 'ok' | 'error', info, error, details }`
  * 원본:     `{ status: 'UP' | 'DOWN' }` — **그게 전부다**.

@@ -2,7 +2,7 @@ import { HttpService } from '@nestjs/axios';
 import { Injectable, Logger } from '@nestjs/common';
 import { firstValueFrom } from 'rxjs';
 
-/** server-c 의 internal GET 응답 `data` (spec-parity §2 #6 — 봉투를 사용한다). */
+/** server-c 의 internal GET 응답 `data` (api-contract §2 #6 — 봉투를 사용한다). */
 export interface UserCouponLookupResult {
   userId: number;
   eventId: number;

@@ -1,5 +1,5 @@
 /**
- * server-c 의 도메인 상태값. 문자열 값이 곧 DB 컬럼 값이자 API 응답 값이다 (spec-parity §6).
+ * server-c 의 도메인 상태값. 문자열 값이 곧 DB 컬럼 값이자 API 응답 값이다 (api-contract §6).
  * 스키마가 `VARCHAR(20)` 이므로 TypeORM `type: 'enum'` 을 쓰지 않는다 (ADR-N05).
  */
 

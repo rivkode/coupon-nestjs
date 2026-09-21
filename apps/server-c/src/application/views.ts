@@ -14,7 +14,7 @@ import type { UserCoupon } from '../domain/user-coupon';
  * infrastructure → api 방향 import 는 레이어 규칙 위반이다 (nest-ddd-layering §1).
  *
  * ⚠️ 시각 필드는 전부 **문자열**이다. Java `LocalDateTime` 의 Jackson 출력을 재현해야 해서
- *    `Date` 를 그대로 두면 `toISOString()` 이 `Z` 와 `.000` 을 붙여 계약이 깨진다 (spec-parity §11).
+ *    `Date` 를 그대로 두면 `toISOString()` 이 `Z` 와 `.000` 을 붙여 계약이 깨진다 (api-contract §11).
  */
 
 /** `GET /api/v1/events/{eventId}` 응답 + `event:{id}` 캐시 값 (원본 `EventResponse`). */
@@ -43,7 +43,7 @@ export function toEventView(event: Event): EventView {
  * `GET /api/v1/users/me/coupons` 의 배열 원소 (원본 `UserCouponResponse`).
  *
  * ⚠️ `usedAt` 은 **null 이어도 생략하지 않는다** — "아직 안 썼다" 가 의미 있는 정보라
- *    원본만 `@JsonInclude` 를 붙이지 않았다 (spec-parity §3).
+ *    원본만 `@JsonInclude` 를 붙이지 않았다 (api-contract §3).
  */
 export interface UserCouponView {
   userId: number;

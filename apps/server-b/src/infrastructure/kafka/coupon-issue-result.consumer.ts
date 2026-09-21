@@ -24,7 +24,7 @@ import { KAFKA_CLIENT, kafkaTopics } from './kafka.module';
  *
  * ⚠️ `eachBatchAutoResolve: false` 와 `autoCommitThreshold: 1` 이 반드시 있어야 한다 —
  *    빠지면 throttle 로 남긴 레코드가 유실되거나 오프셋이 커밋되지 않는다.
- *    (docs/kafka-consumer-incident.md)
+ *    (docs/reports/kafka.md)
  */
 @Injectable()
 export class CouponIssueResultConsumer

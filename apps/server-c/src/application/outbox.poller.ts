@@ -74,7 +74,7 @@ export class OutboxPoller implements OnApplicationBootstrap {
     const published: number[] = [];
     for (const event of events) {
       try {
-        // key = aggregateId = requestId (spec-parity §9)
+        // key = aggregateId = requestId (api-contract §9)
         await this.publisher.publish(event.aggregateId, event.payload);
         published.push(event.id);
       } catch (e) {

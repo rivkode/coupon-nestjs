@@ -215,7 +215,7 @@ export class CouponIssueProcessor {
   ): Promise<void> {
     await this.outboxRepository.append(tx, {
       // ⚠️ aggregate_id 에 requestId 가 들어가고, 이 값이 그대로 Kafka 메시지 key 가 된다
-      //    (spec-parity §9). erd.md 의 "user_coupon_id 등" 설명과 다르다 — 코드가 권위.
+      //    (api-contract §9). erd.md 의 "user_coupon_id 등" 설명과 다르다 — 코드가 권위.
       aggregateId: payload.requestId,
       eventType: EVENT_TYPE_ISSUE_RESULT,
       payload: JSON.stringify(payload),
@@ -244,7 +244,7 @@ export class CouponIssueProcessor {
  * SOLD_OUT / FAILED 일 때도 `user_coupon` row 를 남겨 사용자 폴링 응답이 가능하게 한다.
  *
  * ⚠️ `CouponCode` VO 를 거치지 않는다 — requestId(UUID) 조각이라 VO 의 알파벳 규칙을 만족하지 않는다.
- *    원본 `generatePlaceholderCode` 와 동일한 **의도된 우회**다 (spec-parity §9).
+ *    원본 `generatePlaceholderCode` 와 동일한 **의도된 우회**다 (api-contract §9).
  */
 function placeholderCode(requestId: string): string {
   return `X${requestId.substring(0, Math.min(11, requestId.length))}`;

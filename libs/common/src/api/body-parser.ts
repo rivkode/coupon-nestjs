@@ -13,7 +13,7 @@ import {
 } from './api-response';
 
 /**
- * Spring 의 `HttpMessageNotReadableException` → 400 MALFORMED_BODY 를 재현한다 (spec-parity §4).
+ * Spring 의 `HttpMessageNotReadableException` → 400 MALFORMED_BODY 를 재현한다 (api-contract §4).
  *
  * 왜 body parser 를 직접 붙이는가:
  * Nest 기본 파서를 쓰면 깨진 JSON 이 **`BadRequestException` 으로 변환되면서 원인 정보가 지워진다**

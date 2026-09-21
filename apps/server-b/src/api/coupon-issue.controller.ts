@@ -8,13 +8,13 @@ import { toIssueResponse, type IssueResponseView } from './issue-response.view';
  * server-a 가 호출하는 internal 발급 endpoint (원본 `CouponIssueController`).
  * ADR-001 — 즉시 "접수 완료" 응답.
  *
- * ⚠️ **응답 봉투를 쓰지 않는다.** 이 endpoint 만 raw payload 로 나간다 (spec-parity §2/§3).
+ * ⚠️ **응답 봉투를 쓰지 않는다.** 이 endpoint 만 raw payload 로 나간다 (api-contract §2/§3).
  *    server-a 가 받아서 자기 봉투로 다시 감싸 사용자에게 전달한다.
  *
  * ⚠️ `@Post()` 기본값은 201 이라 200 으로 고정한다 (원본은 `ResponseEntity` 기본 200).
  *
  * ⚠️ `X-User-Id` 가 필수인데 **server-b 에는 MISSING_HEADER 핸들러가 없다** —
- *    헤더가 없으면 400 이 아니라 500 `INTERNAL_ERROR` 가 나간다 (spec-parity §4, 원본 동작).
+ *    헤더가 없으면 400 이 아니라 500 `INTERNAL_ERROR` 가 나간다 (api-contract §4, 원본 동작).
  */
 @Controller('internal/v1/coupons')
 export class CouponIssueController {

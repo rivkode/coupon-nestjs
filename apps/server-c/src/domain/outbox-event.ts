@@ -4,7 +4,7 @@
  */
 export interface OutboxRecord {
   id: number;
-  /** ⚠️ 발급 결과 이벤트에서는 **requestId** 가 들어간다. Kafka 메시지 key 로도 쓰인다 (spec-parity §9). */
+  /** ⚠️ 발급 결과 이벤트에서는 **requestId** 가 들어간다. Kafka 메시지 key 로도 쓰인다 (api-contract §9). */
   aggregateId: string;
   eventType: string;
   /** JSON 직렬화된 payload. */

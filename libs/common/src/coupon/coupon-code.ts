@@ -17,7 +17,7 @@ export class CouponCode {
   private constructor(readonly value: string) {}
 
   /**
-   * ⚠️ 예외 종류가 곧 HTTP 상태코드다 (spec-parity §4):
+   * ⚠️ 예외 종류가 곧 HTTP 상태코드다 (api-contract §4):
    *  - null 검사는 원본이 `Objects.requireNonNull` (= NPE) → 매핑 없음 → **500 INTERNAL_ERROR**
    *  - 길이/문자 검사는 원본이 `IllegalArgumentException` → **400 INVALID_ARGUMENT** (메시지 그대로 노출)
    * 원본 server-c 의 핸들러 javadoc 이 "IllegalArgumentException → 400 (예: CouponCode 길이)" 로 명시한다.

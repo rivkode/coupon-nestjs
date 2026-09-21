@@ -16,7 +16,7 @@ description: Java/Spring Boot 원본 파일을 NestJS/TypeScript 로 옮기는 �
 1) 원본 읽기        원본 .java 전체 + 그 클래스가 의존하는 인터페이스/상위 타입
                     + 같은 이름의 테스트 파일 (XxxTest.java, XxxIT.java)
 2) 계층 판정        api / application / domain / infrastructure  → nest-ddd-layering 스킬
-3) 계약 확인        API·스키마·Redis 키·Kafka payload 를 건드리는가 → spec-parity 스킬
+3) 계약 확인        API·스키마·Redis 키·Kafka payload 를 건드리는가 → api-contract 스킬
 4) 치환            아래 §2~§4 표를 적용
 5) 주석 이관        ⚠️ 비즈니스 결정/트레이드오프 주석은 반드시 함께 옮긴다.
                     ADR 참조(예: "ADR-008") 는 문구 그대로 유지
@@ -87,7 +87,7 @@ description: Java/Spring Boot 원본 파일을 NestJS/TypeScript 로 옮기는 �
 ### server-a
 - `IssueRequestService` 는 **`@Transactional` 이 없다** — 원본 주석이 이유를 설명한다. 트랜잭션을 만들지 말 것.
 - SOLD_OUT 단락이 **B 호출보다 먼저** 온다 (ADR-011). 순서를 바꾸면 ADR 위반.
-- CB OPEN 시 503 + `Retry-After: 5`, 본문은 `success: true` — 이상해 보여도 원본대로 (spec-parity §4).
+- CB OPEN 시 503 + `Retry-After: 5`, 본문은 `success: true` — 이상해 보여도 원본대로 (api-contract §4).
 - `application-*.yml` 의 CB/Retry 수치(`slow-call-duration-threshold: 800ms`, `max-attempts: 2` 등)는
   **부하 테스트로 얻은 값**이다. 기본값으로 갈아엎지 말고 그대로 옮긴다.
 
@@ -137,4 +137,4 @@ description: Java/Spring Boot 원본 파일을 NestJS/TypeScript 로 옮기는 �
 - [ ] 원본의 **주석에 적힌 결정 근거**가 옮겨졌는가
 - [ ] 원본 yml 의 **튜닝 수치**가 그대로인가 (임의 기본값으로 대체하지 않았는가)
 - [ ] 원본 테스트 케이스가 전부 대응되는가
-- [ ] `spec-parity` 체크리스트를 통과하는가
+- [ ] `api-contract` 체크리스트를 통과하는가

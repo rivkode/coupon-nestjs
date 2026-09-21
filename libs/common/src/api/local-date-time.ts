@@ -1,5 +1,5 @@
 /**
- * Java `LocalDateTime` 의 Jackson 직렬화 결과를 재현한다 (spec-parity §11).
+ * Java `LocalDateTime` 의 Jackson 직렬화 결과를 재현한다 (api-contract §11).
  *
  * Jackson 은 `DateTimeFormatter.ISO_LOCAL_DATE_TIME` 을 쓰고, 이 포맷은 **뒷자리를 생략**한다:
  *
@@ -34,7 +34,7 @@ export function toLocalDateTimeString(value: Date): string {
   return out;
 }
 
-/** null 을 그대로 통과시키는 변형 — `usedAt` 처럼 null 이 의미 있는 필드용 (spec-parity §3). */
+/** null 을 그대로 통과시키는 변형 — `usedAt` 처럼 null 이 의미 있는 필드용 (api-contract §3). */
 export function toLocalDateTimeStringOrNull(value: Date | null): string | null {
   return value === null ? null : toLocalDateTimeString(value);
 }

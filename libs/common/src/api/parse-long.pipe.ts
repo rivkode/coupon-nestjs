@@ -13,7 +13,7 @@ const LONG_PATTERN = /^[+-]?\d+$/;
  *
  * Nest 기본 `ParseIntPipe` 는 `BadRequestException` 을 던져 Nest 기본 본문이 나가므로
  * 계약(400 `TYPE_MISMATCH` + `"argument type mismatch: {name}"`)을 맞출 수 없다.
- * 여기서 `TypeMismatchError` 로 바꿔 던지고 전역 필터가 봉투를 씌운다 (spec-parity §4).
+ * 여기서 `TypeMismatchError` 로 바꿔 던지고 전역 필터가 봉투를 씌운다 (api-contract §4).
  *
  * 메시지에 들어가는 이름은 **원본 컨트롤러의 파라미터 이름**이다 (`eventId`, `userId`, `couponTypeId`).
  * Nest 는 `metadata.data` 로 `@Param('eventId')` 의 키를 주므로 그대로 쓴다.

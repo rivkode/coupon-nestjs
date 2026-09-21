@@ -47,7 +47,7 @@
  * │ listener.concurrency (Spring)    │ 1          │ 1        │ partitionsConsumedConcurrently 1  │
  * └──────────────────────────────────┴────────────┴──────────┴──────────────────────────────────┘
  *
- * ■ 이 차이 때문에 실제로 터졌던 두 가지 (docs/kafka-consumer-incident.md 참고)
+ * ■ 이 차이 때문에 실제로 터졌던 두 가지 (docs/reports/kafka.md 참고)
  *   1. `eachBatchAutoResolve` — kafkajs 전용 옵션이고 **기본 true**. Java 에는 대응 개념이 없다.
  *      true 면 eachBatch 가 정상 종료할 때 배치의 마지막 오프셋을 통째로 resolve 하므로,
  *      throttle 로 남겨둔 레코드가 "처리 완료" 로 표시되어 영구 유실된다.

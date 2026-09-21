@@ -1,6 +1,6 @@
 /**
  * server-c 의 Redis 키 컨벤션 (원본 `RedisKeys`).
- * 키 문자열은 계약이다 — `coupon:available:*` 은 **server-a 가 읽는다** (spec-parity §8).
+ * 키 문자열은 계약이다 — `coupon:available:*` 은 **server-a 가 읽는다** (api-contract §8).
  */
 export const RedisKeys = {
   /** `event:{eventId}` — JSON 직렬화된 EventView, TTL 적용. c 가 쓰고 c 가 읽는다. */

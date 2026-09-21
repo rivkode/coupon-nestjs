@@ -15,7 +15,7 @@ const LONG_PATTERN = /^[+-]?\d+$/;
  * 원본 `@RequestHeader("X-User-Id") Long userId` 에 대응한다
  * (`IssueRequestController`, `RedeemCouponController`, `UserCouponController`).
  *
- * 매핑 (spec-parity §4):
+ * 매핑 (api-contract §4):
  *  - 헤더 없음 → `MissingHeaderError` → a/c 400 `MISSING_HEADER`, **b 는 핸들러가 없어 500 `INTERNAL_ERROR`**
  *  - Long 변환 실패 → Spring 의 `MethodArgumentTypeMismatchException` 에 대응하는
  *    `TypeMismatchError` → 400 `TYPE_MISMATCH`, message `"argument type mismatch: userId"`

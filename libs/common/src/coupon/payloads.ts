@@ -6,7 +6,7 @@ import {
 } from './statuses';
 
 /**
- * Kafka 메시지 payload — 필드명·순서가 곧 wire 계약이다 (spec-parity §9).
+ * Kafka 메시지 payload — 필드명·순서가 곧 wire 계약이다 (api-contract §9).
  *
  * ID 타입 주의: DB 는 BIGINT 지만 **wire 는 JSON number** 다 (Java `long` 직렬화 결과).
  * TypeORM 이 돌려주는 string 을 그대로 실으면 계약이 깨지므로,
@@ -31,7 +31,7 @@ export interface CouponIssueRequestPayload {
 /**
  * 원본 record 의 compact constructor 검증을 그대로 옮긴 것.
  *
- * ⚠️ 예외 종류가 곧 HTTP 상태코드다 (spec-parity §4). 원본과 1:1로 맞춘다:
+ * ⚠️ 예외 종류가 곧 HTTP 상태코드다 (api-contract §4). 원본과 1:1로 맞춘다:
  *  - `IllegalArgumentException` (isBlank / must be positive) → `InvalidArgumentError` → **400 INVALID_ARGUMENT**
  *  - `Objects.requireNonNull` (= `NullPointerException`) → 매핑 없음 → **500 INTERNAL_ERROR**
  * 후자를 `InvalidArgumentError` 로 올리면 원본이 500 을 내는 자리에서 400 이 나간다.

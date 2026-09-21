@@ -12,7 +12,7 @@ import { Catch, HttpStatus, Logger } from '@nestjs/common';
 /**
  * server-a 전역 예외 핸들러 — 원본 `servera/api/exception/GlobalExceptionHandler.java`.
  *
- * 매핑 (spec-parity §4):
+ * 매핑 (api-contract §4):
  *  - VALIDATION_FAILED / MALFORMED_BODY / TYPE_MISMATCH / INVALID_ARGUMENT → 400
  *  - MISSING_HEADER → 400
  *  - InvalidStateError → 409 INVALID_STATE

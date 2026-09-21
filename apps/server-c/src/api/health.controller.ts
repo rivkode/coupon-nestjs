@@ -4,7 +4,7 @@ import { HealthCheckService, TypeOrmHealthIndicator } from '@nestjs/terminus';
 import type { Response } from 'express';
 
 /**
- * Spring Actuator 의 `/actuator/health` 대응 (spec-parity §10).
+ * Spring Actuator 의 `/actuator/health` 대응 (api-contract §10).
  * 경로와 본문(`{"status":"UP"}` / `{"status":"DOWN"}`)을 원본 그대로 유지해야
  * 원본의 load-test 스크립트가 같이 동작한다.
  *

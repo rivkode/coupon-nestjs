@@ -2,7 +2,7 @@
  * wire-level 상태 enum 모음.
  *
  * Java 원본은 각각 별도 enum 파일 (`IssueAcceptanceStatus`, `CouponIssueResultStatus`).
- * TS 에서는 union type + const 배열로 표현한다 — 값 문자열은 원본과 동일해야 한다 (spec-parity §6).
+ * TS 에서는 union type + const 배열로 표현한다 — 값 문자열은 원본과 동일해야 한다 (api-contract §6).
  */
 
 /** A↔B 응답 상태. 신규 설계의 응답 모델은 즉시 "접수 완료" 만. */

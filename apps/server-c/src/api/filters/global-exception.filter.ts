@@ -17,7 +17,7 @@ import { OptimisticLockFailureError } from '../../domain/exception/optimistic-lo
  * server-c 전역 예외 핸들러 — 원본 `serverc/api/exception/GlobalExceptionHandler.java`.
  * a 의 핸들러와 동일 형식 + redeem 영역의 예외 (낙관락, 도메인 NotFound) 매핑 추가.
  *
- * 매핑 (spec-parity §4):
+ * 매핑 (api-contract §4):
  *  - CouponNotFoundError        → 404 NOT_FOUND       ("coupon not found" — 소유권 마스킹 포함)
  *  - EventNotFoundError         → 404 EVENT_NOT_FOUND ("event not found")
  *  - OptimisticLockFailureError → 409 RACE_RETRY      (+ INFO 로그)

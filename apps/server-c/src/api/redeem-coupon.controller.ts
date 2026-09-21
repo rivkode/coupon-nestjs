@@ -18,7 +18,7 @@ export class RedeemCouponController {
   constructor(private readonly redeemCouponService: RedeemCouponService) {}
 
   // ⚠️ Nest 의 `@Post()` 기본 응답은 **201** 이다. 원본은 `ResponseEntity.status(HttpStatus.OK)` 로
-  //    200 을 내므로 명시적으로 고정한다. 빠뜨리면 계약이 조용히 틀어진다 (spec-parity §1).
+  //    200 을 내므로 명시적으로 고정한다. 빠뜨리면 계약이 조용히 틀어진다 (api-contract §1).
   @Post(':code/redeem')
   @HttpCode(HttpStatus.OK)
   async redeem(

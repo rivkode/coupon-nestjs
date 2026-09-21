@@ -16,7 +16,7 @@ import {
  * 세 앱의 전역 예외 필터가 공유하는 뼈대 — Spring 의 `@RestControllerAdvice` 자리.
  *
  * 처리 순서 (ADR-N06):
- *  1. `mapDomain()` — 각 앱이 정의한 계약 예외 → 봉투 + 에러코드 (spec-parity §4)
+ *  1. `mapDomain()` — 각 앱이 정의한 계약 예외 → 봉투 + 에러코드 (api-contract §4)
  *  2. `HttpException` — Nest/express 가 던진 것(404/405/415/413 …).
  *     **상태코드는 살리고 본문만 봉투로** 감싼다.
  *  3. 그 외 — 500 INTERNAL_ERROR (메시지 마스킹 + ERROR 로그)

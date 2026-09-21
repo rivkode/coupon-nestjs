@@ -17,7 +17,7 @@ async function bootstrap(): Promise<void> {
 
   // Spring 의 @Valid + MethodArgumentNotValidException → VALIDATION_FAILED (fieldErrors 포함)
   app.useGlobalPipes(createValidationPipe());
-  // @RestControllerAdvice 대응. 봉투 + 에러코드 매핑은 서버마다 다르다 (spec-parity §4).
+  // @RestControllerAdvice 대응. 봉투 + 에러코드 매핑은 서버마다 다르다 (api-contract §4).
   app.useGlobalFilters(new GlobalExceptionFilter());
 
   // ADR-N02: Kafka/Redis 연결을 OnApplicationShutdown 에서 정리하려면 필수.

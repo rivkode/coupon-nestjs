@@ -46,7 +46,7 @@ find ~/dev/project/java/promotion-event -name "Xxx*.java"
 - **순서가 같은가** (예: server-a 의 SOLD_OUT 단락이 B 호출보다 먼저인가)
 - 루프·배치 처리의 종료 조건이 같은가
 
-#### ② 계약 (`spec-parity` 스킬의 표를 기준)
+#### ② 계약 (`api-contract` 스킬의 표를 기준)
 - 경로 / 메서드 / DTO 필드명·타입·필수 여부
 - HTTP 상태코드, 에러코드 문자열
 - 응답 봉투 형태와 `null` 생략 규칙 (`usedAt` 예외 포함)

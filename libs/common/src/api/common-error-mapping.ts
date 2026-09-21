@@ -21,7 +21,7 @@ export interface MappedError {
 /**
  * server-a / b / c 의 `GlobalExceptionHandler` 가 **공통으로** 갖는 매핑만 담는다.
  *
- * 서버마다 다른 매핑은 각 앱의 필터가 담당한다 (spec-parity §4):
+ * 서버마다 다른 매핑은 각 앱의 필터가 담당한다 (api-contract §4):
  *  - `InvalidStateError` → a/c: 409 INVALID_STATE, b: 500 INTERNAL_STATE
  *  - `MissingHeaderError` → a/c: 400 MISSING_HEADER, b: **핸들러 없음** → 500 INTERNAL_ERROR
  *  - 도메인 NotFound / 낙관락 → c 전용

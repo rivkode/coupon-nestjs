@@ -6,7 +6,7 @@ import type { IssuePendingStatus } from '../../domain/statuses';
 import { REDIS_CLIENT } from './redis.module';
 import { RedisKeys } from './redis-keys';
 
-/** hash 필드명 — 계약이다 (spec-parity §8). 바꾸면 이미 적재된 신청을 읽지 못한다. */
+/** hash 필드명 — 계약이다 (api-contract §8). 바꾸면 이미 적재된 신청을 읽지 못한다. */
 const F = {
   REQUEST_ID: 'requestId',
   USER_ID: 'userId',

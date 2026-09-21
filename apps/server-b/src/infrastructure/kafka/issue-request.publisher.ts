@@ -109,7 +109,7 @@ export class IssueRequestPublisher
     }
     await this.producer.send({
       topic: kafkaTopics.issueRequest,
-      // key = userId — 같은 user 의 이벤트에 partition 순서를 보장한다 (spec-parity §9).
+      // key = userId — 같은 user 의 이벤트에 partition 순서를 보장한다 (api-contract §9).
       messages: [
         { key: String(payload.userId), value: JSON.stringify(payload) },
       ],

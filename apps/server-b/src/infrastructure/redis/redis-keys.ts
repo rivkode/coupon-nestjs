@@ -1,5 +1,5 @@
 /**
- * server-b 의 Redis 키 컨벤션 (원본 `RedisKeys`). 키 문자열은 계약이다 (spec-parity §8).
+ * server-b 의 Redis 키 컨벤션 (원본 `RedisKeys`). 키 문자열은 계약이다 (api-contract §8).
  */
 export const RedisKeys = {
   /** 사용자 신청 hash — status / createdAt / requestId / eventId / couponTypeId / code / publishAttempts / lastPublishedAt */

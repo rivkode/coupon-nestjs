@@ -7,7 +7,7 @@ import { ValidationFailedError } from './errors';
  *
  * 기본 ValidationPipe 는 `BadRequestException` 을 던지고 Nest 기본 포맷으로 응답해 버린다.
  * 원본은 필드별 에러를 `fieldErrors` 배열로 내려주므로, exceptionFactory 에서
- * `ValidationFailedError` 로 바꿔 던지고 ExceptionFilter 가 봉투를 씌운다 (spec-parity §3/§4).
+ * `ValidationFailedError` 로 바꿔 던지고 ExceptionFilter 가 봉투를 씌운다 (api-contract §3/§4).
  */
 export function createValidationPipe(
   options: ValidationPipeOptions = {},

@@ -1,41 +1,39 @@
-# 프로모션 쿠폰 시스템 — NestJS / TypeORM 포팅
+# 쿠폰 발급 시스템 (NestJS)
 
 > 이 문서는 Claude Code 가 매 세션마다 자동으로 읽는 프로젝트 컨텍스트입니다.
 > 새 작업을 시작하기 전에 이 문서의 결정사항을 반드시 준수해 주세요.
 > 결정사항을 변경해야 한다고 판단되면, 먼저 사용자와 상의하세요.
->
-> **본 프로젝트는 신규 개발이 아니라 포팅(migration)입니다.**
-> source of truth 는 Java 원본: `~/dev/project/java/promotion-event`
-> - 원본 `CLAUDE.md` — 도메인/ADR/안티패턴의 원천
-> - 원본 `docs/design/api-spec.md` — **동결된 API 계약**
-> - 원본 `docs/design/erd.md`, `server-*/src/main/resources/db/migration/*.sql` — **동결된 스키마**
->
-> 본 문서와 원본 문서가 충돌하면, **언어 중립적 결정(ADR, API, 스키마)은 원본이 우선**하고
-> **NestJS/TypeORM 구현 방식은 본 문서(§7, §11, §14)가 우선**합니다.
 
 ---
 
 ## 1. 프로젝트 목표
 
-Java 21 / Spring Boot 3.5 / JPA 로 구현된 선착순 쿠폰 발급 시스템을
-**NestJS + TypeORM** 으로 옮긴다. 외부 인프라(MySQL, Redis, Kafka)는 그대로 사용한다.
+**1 vCPU / 2 GB 인스턴스에서 1,000 TPS 를 유실 없이 처리하는 선착순 쿠폰 발급 시스템**을
+NestJS + TypeORM 으로 구현한다. 외부 인프라는 MySQL, Redis, Kafka 를 사용한다.
 
-**성공 기준은 단 하나 — 스펙 동일성(parity)**:
+아키텍처(서비스 분리, 비동기 발급, 비관적 락, Outbox, 멱등성)는
+[Java/Spring 구현](~/dev/project/java/promotion-event)에서 먼저 검증한 설계를 따른다.
+**설계를 다시 고민하는 것이 아니라, 같은 설계를 Node 런타임에서 실제로 성립시키는 것**이 이 저장소의 일이다.
 
-| 동일해야 하는 것 | 근거 |
+### 무엇에 집중하는가
+
+| 관심사 | 확인할 것 |
 |---|---|
-| 공개 API 4개 + 내부 API 2개의 경로/메서드/요청·응답 본문 | `docs/design/api-spec.md` |
-| HTTP 상태코드 + 에러코드 **11종** + 응답 봉투 `{success, data \| error}` | 같음 (`api-spec.md` 는 10종만 적지만 b 의 `INTERNAL_STATE` 가 더 있다) |
-| MySQL 테이블/컬럼/인덱스/제약 이름 | `db/migration/V*.sql` |
-| Redis 키 이름 + 자료구조 + TTL | 원본 `RedisKeys.java` |
-| Kafka 토픽 이름 + 메시지 payload 필드명 | 원본 `common/coupon/*.java` |
-| ADR 11개의 **결정과 근거** | 원본 `CLAUDE.md` §6 |
+| Node 런타임 차이 | 단일 이벤트 루프, 부팅 차단, timeout 의미 차이 → `docs/reports/runtime.md` |
+| 라이브러리 기본값 | kafkajs·TypeORM 의 기본값이 Spring 과 **반대인 지점** → `docs/reports/kafka.md` |
+| 경계에서만 나는 문제 | throttle·batch·재시도 한도는 한계 이상의 부하로 검증 |
+| 서비스 간 계약 | API·스키마·Redis 키·Kafka payload → `api-contract` 스킬 |
 
-**달라도 되는 것**: 언어 관용구, 파일 이름, 내부 클래스 구조, 성능 수치(Node 는 별도 측정).
+### 참고 자료
+
+원본 저장소(`~/dev/project/java/promotion-event`)는 **왜 이 설계인지**의 근거다.
+구현 판단이 필요하면 해당 `.java` / `application.yml` 을 직접 열어 읽는다 — 요약본을 추측하지 않는다.
+특히 yml 의 튜닝 수치(CB 임계값, 풀 크기, cutoff, batch)는 부하 테스트로 얻은 값이라
+라이브러리 기본값으로 대체하면 안 된다.
 
 ---
 
-## 2. 트래픽 시나리오 및 자원 제약 (원본 §2 승계)
+## 2. 트래픽 시나리오 및 자원 제약
 
 | 항목 | 값 |
 |------|------|
@@ -51,7 +49,7 @@ HTTP 핸들러 + Kafka consumer + 스케줄러가 **같은 루프를 공유**하
 
 ---
 
-## 3. 시스템 아키텍처 (원본 §4 그대로)
+## 3. 시스템 아키텍처
 
 ```
 [User] ──HTTPS──▶ [server-a] ──sync HTTP──▶ [server-b] ──Kafka(issue)──▶ [server-c]
@@ -67,11 +65,11 @@ HTTP 핸들러 + Kafka consumer + 스케줄러가 **같은 루프를 공유**하
 
 **A→B 는 동기 (단 응답은 "접수 완료"), B↔C 는 양방향 비동기 Kafka** 가 핵심 설계.
 
-데이터 흐름 11단계의 상세는 원본 `docs/design/architecture.md` 를 읽을 것. 요약하지 말고 원문을 볼 것.
+데이터 흐름 11단계의 상세는 `docs/design/architecture.md` 참조.
 
 ---
 
-## 4. 서비스별 책임 (원본 §5 요약 — 상세는 원본 참조)
+## 4. 서비스별 책임
 
 | 서버 | 포트 | 책임 | 저장소 | 절대 하지 말 것 |
 |---|---|---|---|---|
@@ -106,7 +104,7 @@ HTTP 핸들러 + Kafka consumer + 스케줄러가 **같은 루프를 공유**하
 
 ---
 
-## 6. ADR — 원본 승계 (ADR-001 ~ ADR-011)
+## 6. 설계 결정 (원본에서 검증된 ADR-001 ~ 011)
 
 원본 `CLAUDE.md` §6 의 ADR 11개는 **언어 중립적 결정**이므로 결정·근거·트레이드오프를 그대로 승계한다.
 여기서는 각 ADR 이 본 프로젝트에서 **어떤 구현으로 내려앉는지**만 적는다. 근거가 궁금하면 원본을 읽을 것.
@@ -138,7 +136,7 @@ Java 에는 없던, 런타임 차이 때문에 새로 필요한 결정들.
 - **근거**: 트랜잭션 경계가 코드에 그대로 드러나 추적이 쉽고, 의존성이 늘지 않는다.
   1 vCPU 환경에서 ALS 컨텍스트 전파 오버헤드도 피한다.
 - **트레이드오프**: 리포지토리 시그니처가 Java 와 다르다 (`save(em, entity)`).
-  이는 **의도된 차이**이며 spec parity 대상이 아니다.
+  이는 **의도된 차이**다 — 서비스 경계를 넘지 않는 내부 구조이기 때문이다.
 - **`afterCommit` 대응**: Spring 의 `TransactionSynchronization.afterCommit` 은 등가물이 없다.
   `await dataSource.transaction(...)` **이후 줄**에서 실행한다. 의미(커밋 후 실행)는 동일하다.
   ADR-011 의 negative cache 적재가 여기 해당한다.
@@ -171,7 +169,7 @@ async process(payload: CouponIssueRequestPayload): Promise<void> {
   `OptimisticLockVersionMismatchError` 는 **읽기 시점**(`SelectQueryBuilder`)에서만 던져진다.
   즉 `save()` 만 하면 JPA `@Version` 과 동작이 다르고, 동시 redeem 이 **둘 다 성공**한다.
 - **결정**: redeem 은 명시적 조건부 UPDATE 로 구현하고 `affected === 0` 이면 `409 RACE_RETRY`.
-  `version` 컬럼은 스키마 parity 를 위해 유지하며 직접 증가시킨다.
+  `version` 컬럼은 스키마 그대로 유지하되 직접 증가시킨다.
 
 ```ts
 const res = await em.createQueryBuilder()
@@ -193,7 +191,7 @@ if (res.affected === 0) throw new RaceRetryException(); // → 409 RACE_RETRY
 - **결정**: `V1__schema.sql` / `V2__add_event_status.sql` 의 DDL 을 TypeORM 마이그레이션의
   `queryRunner.query()` 안에 **문자열 그대로** 옮긴다. TypeORM 이 DDL 을 생성하게 두지 않는다.
 - **근거**: 컬럼 타입(`DATETIME(3)`, `VARCHAR(20)`), 제약 이름(`uk_user_coupon_user_type`),
-  인덱스 이름까지 parity 대상이다. TypeORM 의 `type: 'enum'` 은 MySQL `ENUM` 을 만들어 원본과 달라진다.
+  인덱스 이름까지 계약이다. TypeORM 의 `type: 'enum'` 은 MySQL `ENUM` 을 만들어 스키마가 달라진다.
 - **적용**: 모든 DataSource 에 `synchronize: false`, `migrationsRun: true`.
   엔티티는 `type: 'varchar', length: 20` + TS union 타입으로 상태값을 표현한다.
 
@@ -251,7 +249,7 @@ coupon-api-nestjs/
 │   ├── server-a/                   원본 V1__schema.sql 이관
 │   └── server-c/                   원본 V1, V2 이관
 │
-├── test/                           e2e (spec parity 검증)
+├── test/                           e2e (API 계약 + 영속 계층)
 └── docs/                           Node 기준 측정 결과만. 설계 문서는 원본을 링크
 ```
 
@@ -294,7 +292,7 @@ coupon-api-nestjs/
 - ❌ 이벤트 루프를 막는 동기 코드 (ADR-N04)
 - ❌ `@nestjs/throttler` 도입 (ADR-005 — Rate Limit 은 의도적으로 없음)
 - ❌ `@nestjs/microservices` Kafka transport (ADR-N02)
-- ❌ 원본에 없는 API/필드/에러코드 추가 (§1 parity)
+- ❌ 계약에 없는 API/필드/에러코드 추가 (`api-contract` 스킬)
 - ❌ `app.enableShutdownHooks()` 누락
 - ❌ 헥사고날 아키텍처 도입 (원본 §10 — 레이어드 + 경량 DDD 로 충분)
 
@@ -352,12 +350,25 @@ api → application → domain
 
 | 이름 | 종류 | 언제 |
 |---|---|---|
-| `spec-parity` | skill | API/스키마/키/토픽을 건드리기 **전** |
+| `api-contract` | skill | API/스키마/키/토픽을 건드리기 **전** |
 | `nest-ddd-layering` | skill | 새 파일/클래스를 만들기 전 |
 | `typeorm-patterns` | skill | 엔티티·트랜잭션·락·마이그레이션 작업 시 |
 | `java-to-nest-porting` | skill | 원본 파일을 옮길 때 (매 파일) |
 | `spec-auditor` | agent | 모듈 포팅 완료 직후 — 원본과 동작 대조 |
 | `nest-code-reviewer` | agent | 코드 작성/리팩토링 완료 직후 |
+
+---
+
+## 13-1. 문서
+
+| 문서 | 내용 |
+|---|---|
+| `docs/design/` | 아키텍처 · ERD · API 명세 |
+| `docs/decisions/` | 설계 결정 + Node 환경에서 새로 내린 결정 |
+| `docs/reports/` | 기술 보고서 — Kafka · 동시성 · 정합성 · 캐시 · 런타임 |
+
+**새로 배운 것은 해당 보고서에 반영한다.** 특히 "라이브러리 기본값이 달라서 터진 것" 은
+`docs/reports/` 의 해당 문서에 증상 → 원인(소스 인용) → 해결 → 확인 순으로 남긴다.
 
 ---
 
@@ -367,6 +378,6 @@ api → application → domain
   요약본(본 문서)은 색인일 뿐 권위가 아니다.
 - 새 코드 작성 전, §6/§7 의 ADR 과 §10 안티패턴을 먼저 확인
 - 설계 결정과 충돌이 의심되면 **코드 작성 전에** 사용자에게 질문
-- 원본에 없는 기능·필드·엔드포인트를 "개선" 명목으로 추가하지 않는다 (§1)
+- 계약(`api-contract`)에 없는 필드·엔드포인트를 "개선" 명목으로 추가하지 않는다
 - 새 의존성 추가 시 §5 표를 함께 갱신
 - 커밋 메시지: `feat(server-c): pessimistic-lock inventory decrement` 형식

@@ -16,7 +16,7 @@ export class InvalidArgumentError extends Error {
 
 /**
  * Java `IllegalStateException` — 도메인 상태 전이 실패.
- * ⚠️ 매핑이 서버마다 다르다: a/c → 409 INVALID_STATE, **b → 500 INTERNAL_STATE** (spec-parity §4).
+ * ⚠️ 매핑이 서버마다 다르다: a/c → 409 INVALID_STATE, **b → 500 INTERNAL_STATE** (api-contract §4).
  */
 export class InvalidStateError extends Error {
   constructor(message: string) {

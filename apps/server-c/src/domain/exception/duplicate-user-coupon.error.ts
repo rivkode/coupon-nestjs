@@ -18,5 +18,5 @@ export class DuplicateUserCouponError extends Error {
   }
 }
 
-/** `(user_id, coupon_type_id)` UNIQUE 제약 이름 — 스키마 그대로 (spec-parity §7). */
+/** `(user_id, coupon_type_id)` UNIQUE 제약 이름 — 스키마 그대로 (api-contract §7). */
 export const UK_USER_COUPON_USER_TYPE = 'uk_user_coupon_user_type';

@@ -1,18 +1,20 @@
 ---
-name: spec-parity
-description: Java 원본(promotion-event)과 동일해야 하는 계약 — 공개/내부 API 6개, 응답 봉투, 에러코드 11종, HTTP 상태코드, MySQL 테이블·컬럼·제약 이름, Redis 키·자료구조·TTL, Kafka 토픽·payload 필드 — 을 동결 표로 보관하고 대조를 강제한다. 컨트롤러/DTO/엔티티/마이그레이션/Redis 키/Kafka 메시지를 만들거나 고치기 직전에 PROACTIVELY 사용한다. "API", "응답", "에러코드", "스키마", "테이블", "Redis 키", "토픽", "payload" 가 언급되면 반드시 이 스킬을 먼저 거친다.
+name: api-contract
+description: 이 시스템의 API 계약 — 공개/내부 API 6개, 응답 봉투, 에러코드 11종, HTTP 상태코드, MySQL 테이블·컬럼·제약 이름, Redis 키·자료구조·TTL, Kafka 토픽·payload 필드·시각 포맷 — 을 한곳에 모아 두고 대조를 강제한다. 컨트롤러/DTO/엔티티/마이그레이션/Redis 키/Kafka 메시지를 만들거나 고치기 직전에 PROACTIVELY 사용한다. "API", "응답", "에러코드", "스키마", "테이블", "Redis 키", "토픽", "payload" 가 언급되면 반드시 이 스킬을 먼저 거친다.
 ---
 
-# Spec Parity — 동결된 계약
+# API 계약
 
-본 프로젝트는 포팅이다. 아래 값들은 **한 글자도 바꾸지 않는다.**
-"더 나은 이름", "더 RESTful 한 경로", "불필요해 보이는 필드"라는 판단이 들면 **바꾸지 말고 사용자에게 질문**한다.
+이 시스템이 외부(사용자·다른 서비스)와 주고받는 값들을 한곳에 모았다.
+**여기 적힌 값은 서비스 경계를 넘는 계약**이라 임의로 바꾸면 호출자가 깨진다.
+예를 들어 `coupon:available:*` 키 이름을 바꾸면 server-a 의 매진 단락이 조용히 죽는다.
 
-> 권위 문서: `~/dev/project/java/promotion-event/docs/design/api-spec.md`, `docs/design/erd.md`,
-> `server-*/src/main/resources/db/migration/V*.sql`, `common/src/main/java/com/promotion/common/coupon/*.java`
-> 본 스킬의 표와 원본이 다르면 **원본이 권위**다. 그때는 본 스킬을 고친다.
+바꿔야 한다고 판단되면 **바꾸기 전에 사용자에게 질문**한다.
 
----
+> 이 표는 [Java/Spring 구현](~/dev/project/java/promotion-event)에서 검증된 계약을 옮겨 온 것이다.
+> 값이 왜 그런지 궁금하면 원본 `docs/design/api-spec.md`, `docs/design/erd.md`,
+> `common/src/main/java/com/promotion/common/coupon/*.java` 를 참고한다.
+> 다만 **코드가 권위**다 — 원본 문서가 코드와 다른 곳이 여러 군데 있었다.
 
 ## 1. 공개 API (4)
 
@@ -204,7 +206,7 @@ ZSet member: `"{userId}:{couponTypeId}"`, score: `lastPublishedAt` (최초엔 `c
 
 ---
 
-## 10-1. 체크리스트 — 계약을 건드리는 PR 이면 전부 통과해야 함
+## 10-1. 체크리스트 — 계약을 건드리는 변경이면 전부 통과해야 함
 
 - [ ] 경로·메서드가 §1/§2 표와 **문자 단위로** 일치하는가
 - [ ] 응답 봉투 형태와 `null` 생략 규칙이 §3 과 같은가 (`usedAt` 예외 포함)
@@ -214,9 +216,9 @@ ZSet member: `"{userId}:{couponTypeId}"`, score: `lastPublishedAt` (최초엔 `c
 - [ ] 테이블/컬럼/제약/인덱스 이름이 §7 과 같은가
 - [ ] Redis 키 문자열·필드명·TTL 이 §8 과 같은가
 - [ ] Kafka 토픽명·payload 필드명이 §9 와 같은가
-- [ ] **원본에 없는 것을 추가하지 않았는가**
+- [ ] **계약에 없는 필드·엔드포인트·에러코드를 추가하지 않았는가**
 
-하나라도 "원본을 개선했다" 면 → 되돌리고 사용자에게 보고한다.
+하나라도 계약을 바꿨다면 → 되돌리고 사용자에게 보고한다.
 
 ## 11. 시각 직렬화 — `Instant` 와 `LocalDateTime` 은 형식이 다르다
 

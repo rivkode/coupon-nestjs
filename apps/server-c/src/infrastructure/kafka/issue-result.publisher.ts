@@ -69,7 +69,7 @@ export class IssueResultPublisher
   }
 
   /**
-   * @param key   `outbox_event.aggregate_id` — 발급 결과에서는 **requestId** 다 (spec-parity §9)
+   * @param key   `outbox_event.aggregate_id` — 발급 결과에서는 **requestId** 다 (api-contract §9)
    * @param value JSON 직렬화된 `CouponIssueResultPayload`
    */
   async publish(key: string, value: string): Promise<void> {

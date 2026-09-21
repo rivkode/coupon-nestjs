@@ -1,5 +1,5 @@
 /**
- * 공통 응답 봉투 (spec-parity §3).
+ * 공통 응답 봉투 (api-contract §3).
  *
  * Java 원본은 server-a/b/c 각각의 `api/dto/ApiResponse.java` 에 **동일한 내용으로 중복** 정의되어 있다.
  * 모노레포에서는 값 타입이 완전히 같으므로 libs/common 으로 합쳤다 — 의도된 구조 차이이며
@@ -50,7 +50,7 @@ export const ErrorResponses = {
 } as const;
 
 /**
- * 표준 에러 코드 (spec-parity §4). 11종 — `api-spec.md` 는 10종만 적고 있으나
+ * 표준 에러 코드 (api-contract §4). 11종 — `api-spec.md` 는 10종만 적고 있으나
  * server-b 가 `INTERNAL_STATE` 를 추가로 쓴다.
  */
 export const ERROR_CODE = {
@@ -69,7 +69,7 @@ export const ERROR_CODE = {
 } as const;
 export type ErrorCode = (typeof ERROR_CODE)[keyof typeof ERROR_CODE];
 
-/** 에러 메시지 상수 — 메시지 문자열도 계약이다 (spec-parity §4). */
+/** 에러 메시지 상수 — 메시지 문자열도 계약이다 (api-contract §4). */
 export const ERROR_MESSAGE = {
   VALIDATION_FAILED: 'request body validation failed',
   MALFORMED_BODY: 'request body is malformed',

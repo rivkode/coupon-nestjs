@@ -1,16 +1,28 @@
-# docs
+# 문서
 
-이 리포에서 생성된 문서. **설계의 원천은 여기가 아니다** —
-요구사항 · 아키텍처 · ERD · API 명세 · ADR 근거는 전부 Java 원본 리포의 `docs/` 에 있다
-(`~/dev/project/java/promotion-event/docs/`). 여기서 요약본을 다시 만들지 않는다.
+[← README](../README.md)
 
-여기에는 **포팅 과정에서만 생기는 것**을 남긴다.
+## 설계
 
 | 문서 | 내용 |
 |---|---|
-| [kafka-consumer-incident.md](kafka-consumer-incident.md) | Kafka consumer 메시지 유실 · 오프셋 미커밋 결함 보고서 (2단계). Spring Kafka ↔ kafkajs 기본값 차이가 원인 |
+| [시스템 아키텍처](design/architecture.md) | 요구사항, 서비스 구성, 발급 흐름 |
+| [ERD / 데이터 모델](design/erd.md) | MySQL 스키마, Redis 키, Kafka 토픽 |
+| [API 명세](design/api-spec.md) | 공개 API 4개 + 내부 API 2개, 에러 코드 |
+| [기술 결정 기록](decisions/README.md) | 설계 차원의 결정 + Node 환경에서 새로 내린 결정 |
 
-## 앞으로 들어올 것
+## 기술 보고서
 
-- Node 기준 부하 테스트 결과 및 인프라 사이징 (5단계) — Java 측정치(인스턴스당 977 RPS)는
-  가상 스레드 기준이라 그대로 인용할 수 없다 (CLAUDE.md §2, ADR-N04)
+각 보고서는 **무엇을 만들려 했고, Node 스택에서 무엇이 달랐고, 어떻게 확인했는지** 순서로 쓴다.
+
+| 문서 | 핵심 |
+|---|---|
+| [Kafka](reports/kafka.md) | kafkajs 에 없거나 기본값이 반대인 설정 — 메시지 유실·오프셋 미커밋 사고와 해결 |
+| [동시성 제어](reports/concurrency.md) | 비관적 락(재고), 낙관적 락(쿠폰 사용). `@VersionColumn` 이 동작하지 않는 이유 |
+| [분산 정합성](reports/consistency.md) | Outbox, UNIQUE 멱등, 보완 스케줄러의 30초 SLA |
+| [캐시 전략](reports/cache.md) | Refresh-Ahead 로 TTL 만료 제거, 매진 negative cache |
+| [Node 런타임 제약](reports/runtime.md) | 단일 이벤트 루프, 부팅 차단 사고, timeout 의미 차이 |
+
+## 앞으로 추가될 것
+
+- 부하 검증 — k6 측정 결과 및 인프라 사이징

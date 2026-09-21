@@ -24,7 +24,7 @@ import { CouponNotFoundError } from '../apps/server-c/src/domain/exception/coupo
 import { OptimisticLockFailureError } from '../apps/server-c/src/domain/exception/optimistic-lock-failure.error';
 
 /**
- * 응답 봉투 + 에러코드 매핑을 고정하는 계약 테스트 (spec-parity §3/§4).
+ * 응답 봉투 + 에러코드 매핑을 고정하는 계약 테스트 (api-contract §3/§4).
  *
  * 실제 컨트롤러가 아직 없으므로 최소 컨트롤러를 세워 **필터/파이프/파서의 동작만** 검증한다.
  * 서버별로 의도적으로 다른 지점(b 의 INTERNAL_STATE, b 의 MISSING_HEADER 부재)을 여기서 못 박는다.
@@ -183,7 +183,7 @@ describe('응답 봉투 / 에러코드 계약', () => {
     });
   });
 
-  describe('X-User-Id 누락 — 서버마다 다르다 (spec-parity §4)', () => {
+  describe('X-User-Id 누락 — 서버마다 다르다 (api-contract §4)', () => {
     it('server-a 는 400 MISSING_HEADER', async () => {
       const res = await request(appA.getHttpServer()).get('/t/header');
 
@@ -275,7 +275,7 @@ describe('응답 봉투 / 에러코드 계약', () => {
     });
   });
 
-  describe('InvalidStateError — 서버마다 다르다 (spec-parity §4)', () => {
+  describe('InvalidStateError — 서버마다 다르다 (api-contract §4)', () => {
     it('server-a 는 409 INVALID_STATE', async () => {
       const res = await request(appA.getHttpServer()).get('/t/invalid-state');
 
